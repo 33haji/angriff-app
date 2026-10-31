@@ -1,0 +1,337 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>練習費</title>
+<style>
+  :root { --bg:#f4f6f8; --card:#fff; --text:#1c1e21; --muted:#6b7280; --line:#e5e7eb; --accent:#1e5fa8; --red:#c5221f; --blue:#1a73e8; --green:#06c755; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",sans-serif; background:var(--bg); color:var(--text); font-size:16px; line-height:1.5; }
+  header { background:var(--accent); color:#fff; padding:14px 16px; display:flex; align-items:center; justify-content:space-between; }
+  header h1 { font-size:17px; margin:0; font-weight:600; }
+  header .who { font-size:13px; opacity:.9; }
+  main { padding:12px 12px 80px; max-width:560px; margin:0 auto; }
+  .card { background:var(--card); border-radius:12px; padding:14px 16px; margin-bottom:12px; box-shadow:0 1px 2px rgba(0,0,0,.05); }
+  .card h2 { font-size:14px; margin:0 0 10px; color:var(--muted); font-weight:600; }
+  .balance { font-size:32px; font-weight:700; margin:4px 0; }
+  .balance.neg { color:var(--red); } .balance.pos { color:var(--blue); } .balance.zero { color:var(--green); }
+  .sub { font-size:13px; color:var(--muted); }
+  .row { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:10px 0; border-top:1px solid var(--line); }
+  .row:first-of-type { border-top:none; }
+  .row .l { flex:1; min-width:0; }
+  .row .t { font-weight:600; }
+  .row .s { font-size:13px; color:var(--muted); }
+  .seg { display:flex; gap:6px; }
+  .seg button { padding:8px 12px; border:1px solid var(--line); background:#fff; border-radius:8px; font-size:14px; color:var(--text); }
+  .seg button.on { background:var(--accent); color:#fff; border-color:var(--accent); }
+  .seg button.on.no { background:#9ca3af; border-color:#9ca3af; }
+  .btn { display:block; width:100%; padding:13px; border:none; border-radius:10px; font-size:16px; font-weight:600; background:var(--accent); color:#fff; margin-top:10px; }
+  .btn.ghost { background:#fff; color:var(--accent); border:1px solid var(--accent); }
+  .btn.danger { background:var(--red); }
+  .btn:disabled { opacity:.5; }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .grid2 .btn { margin-top:0; }
+  label { display:block; font-size:13px; color:var(--muted); margin:10px 0 4px; }
+  input, select { width:100%; padding:11px; font-size:16px; border:1px solid var(--line); border-radius:8px; background:#fff; }
+  .tabs { position:fixed; bottom:0; left:0; right:0; background:#fff; border-top:1px solid var(--line); display:flex; padding-bottom:env(safe-area-inset-bottom); }
+  .tabs button { flex:1; padding:12px 0; border:none; background:none; font-size:13px; color:var(--muted); }
+  .tabs button.on { color:var(--accent); font-weight:700; }
+  .hidden { display:none !important; }
+  .toast { position:fixed; left:50%; bottom:80px; transform:translateX(-50%); background:#333; color:#fff; padding:10px 16px; border-radius:20px; font-size:14px; opacity:0; transition:opacity .2s; pointer-events:none; }
+  .toast.show { opacity:1; }
+  .modal { position:fixed; inset:0; background:rgba(0,0,0,.4); display:flex; align-items:flex-end; z-index:10; }
+  .modal .sheet { background:#fff; width:100%; border-radius:16px 16px 0 0; padding:18px 16px calc(18px + env(safe-area-inset-bottom)); max-height:85vh; overflow:auto; }
+  .modal h3 { margin:0 0 6px; font-size:17px; }
+  .chk { display:flex; align-items:center; gap:10px; padding:10px 0; border-top:1px solid var(--line); }
+  .chk input { width:22px; height:22px; }
+  .pill { display:inline-block; font-size:12px; padding:2px 8px; border-radius:10px; background:#eef2f7; color:var(--muted); }
+  .pill.red { background:#fde8e7; color:var(--red); } .pill.blue { background:#e8f0fe; color:var(--blue); }
+  .loading { text-align:center; color:var(--muted); padding:40px 0; }
+</style>
+</head>
+<body>
+<header>
+  <h1>練習費</h1>
+  <div class="who" id="who"></div>
+</header>
+
+<main>
+  <div id="loading" class="loading">読み込み中…</div>
+
+  <!-- ===== メンバー画面 ===== -->
+  <section id="view-home" class="hidden">
+    <div class="card">
+      <h2>あなたの残高</h2>
+      <div class="balance" id="bal">0円</div>
+      <div class="sub" id="bal-sub"></div>
+    </div>
+
+    <div class="card">
+      <h2>練習の出欠</h2>
+      <div id="practices"></div>
+    </div>
+
+    <div class="card">
+      <h2>支払いの申告</h2>
+      <div class="grid2">
+        <button class="btn" onclick="openCash()">袋に現金を入れた</button>
+        <button class="btn ghost" onclick="openTransfer()">他の人の分も払った</button>
+      </div>
+      <button class="btn ghost" onclick="openGuest()">助っ人を連れてきた</button>
+    </div>
+  </section>
+
+  <!-- ===== 履歴 ===== -->
+  <section id="view-history" class="hidden">
+    <div class="card"><h2>入金履歴</h2><div id="hist-pay"></div></div>
+    <div class="card"><h2>出席履歴</h2><div id="hist-att"></div></div>
+  </section>
+
+  <!-- ===== 管理者 ===== -->
+  <section id="view-admin" class="hidden">
+    <div class="card">
+      <h2>練習日を追加</h2>
+      <label>日付</label><input type="date" id="np-date">
+      <label>場所（任意）</label><input type="text" id="np-place" placeholder="体育館名など">
+      <label>参加費</label>
+      <select id="np-price"><option value="500">500円</option><option value="300">300円</option></select>
+      <button class="btn" onclick="createPractice()">追加する</button>
+    </div>
+    <div class="card">
+      <h2>出席を確定する</h2>
+      <div id="admin-practices"></div>
+    </div>
+    <div class="card">
+      <h2>未払い</h2>
+      <div id="admin-unpaid"></div>
+    </div>
+    <div class="card">
+      <h2>残高プラス（前払い・立て替え・記録漏れ）</h2>
+      <div id="admin-plus"></div>
+    </div>
+    <div class="card">
+      <h2>名寄せできていないPayPay入金</h2>
+      <div class="sub">スプレッドシートの unmatched で紐付けてください</div>
+      <div id="admin-unmatched"></div>
+    </div>
+    <div class="card">
+      <h2>袋の実額を記録</h2>
+      <label>数えた金額</label><input type="number" id="cash-count" inputmode="numeric" placeholder="例: 4500">
+      <button class="btn" onclick="cashCount()">記録する</button>
+    </div>
+  </section>
+</main>
+
+<nav class="tabs" id="tabs">
+  <button class="on" data-v="home" onclick="show('home')">ホーム</button>
+  <button data-v="history" onclick="show('history')">履歴</button>
+  <button data-v="admin" id="tab-admin" class="hidden" onclick="show('admin')">管理</button>
+</nav>
+
+<div id="modal" class="modal hidden" onclick="if(event.target===this)closeModal()"><div class="sheet" id="modal-body"></div></div>
+<div id="toast" class="toast"></div>
+
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<script>
+// ======== ここを埋める ========
+const LIFF_ID = '2012310413-6WKeSnB8';
+const API_URL = 'https://script.google.com/macros/s/AKfycbyOQXQTmaZ62VVdVWv7RviP0MU68X00Jy43ukPlLieThlr-V8iJ5dCuXE7pegruL8K7-w/exec';
+// ==============================
+
+let state = { me: null, isAdmin: false, balance: null, practices: [], members: [] };
+
+async function api(action, params = {}) {
+  const idToken = liff.getIDToken();
+  const res = await fetch(API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },  // preflight回避
+    body: JSON.stringify({ action, idToken, ...params }),
+  });
+  const data = await res.json();
+  if (!data.ok) throw new Error(data.error || 'error');
+  return data;
+}
+
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+function yen(n) { return Number(n).toLocaleString('ja-JP') + '円'; }
+function esc(s) { return String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+function fmtD(s) { const d = new Date(s); return isNaN(d) ? s : `${d.getMonth() + 1}/${d.getDate()}(${'日月火水木金土'[d.getDay()]})`; }
+
+async function main() {
+  try {
+    await liff.init({ liffId: LIFF_ID });
+    if (!liff.isLoggedIn()) { liff.login(); return; }
+    await loadMe();
+    document.getElementById('loading').classList.add('hidden');
+    show('home');
+  } catch (e) {
+    document.getElementById('loading').textContent = 'エラー: ' + e.message;
+  }
+}
+
+async function loadMe() {
+  const d = await api('me');
+  state.me = d.me; state.isAdmin = d.isAdmin; state.balance = d.balance; state.practices = d.practices;
+  document.getElementById('who').textContent = d.me.name;
+  document.getElementById('tab-admin').classList.toggle('hidden', !d.isAdmin);
+  renderHome();
+}
+
+function renderHome() {
+  const b = state.balance;
+  const el = document.getElementById('bal');
+  el.className = 'balance ' + (b.balance < 0 ? 'neg' : b.balance > 0 ? 'pos' : 'zero');
+  el.textContent = (b.balance < 0 ? '未払い ' + yen(-b.balance) : b.balance > 0 ? '前払い ' + yen(b.balance) : '未払いなし');
+  document.getElementById('bal-sub').textContent =
+    state.me.exempt ? '請求免除' :
+    b.balance < 0 ? `未払いの練習: ${b.unpaid}` :
+    `出席 ${b.attended}回 / 請求 ${yen(b.charged)} / 入金 ${yen(b.paid)}`;
+
+  const box = document.getElementById('practices');
+  box.innerHTML = state.practices.filter(p => p.status === 'scheduled').map(p => `
+    <div class="row">
+      <div class="l"><div class="t">${fmtD(p.date)} <span class="pill">${yen(p.price)}</span></div><div class="s">${esc(p.place || '')}</div></div>
+      <div class="seg">
+        <button class="${p.my_status === 'will_attend' ? 'on' : ''}" onclick="attend('${p.practice_id}','will_attend')">参加</button>
+        <button class="${p.my_status === 'absent' ? 'on no' : ''}" onclick="attend('${p.practice_id}','absent')">不参加</button>
+      </div>
+    </div>`).join('') || '<div class="sub">予定されている練習はありません</div>';
+}
+
+async function attend(pid, status) {
+  try { await api('attend', { practice_id: pid, status }); toast(status === 'will_attend' ? '参加で登録しました' : '不参加で登録しました'); await loadMe(); }
+  catch (e) { toast('失敗: ' + e.message); }
+}
+
+// ---- モーダル ----
+function openModal(html) { document.getElementById('modal-body').innerHTML = html; document.getElementById('modal').classList.remove('hidden'); }
+function closeModal() { document.getElementById('modal').classList.add('hidden'); }
+
+function openCash() {
+  const opts = state.practices.map(p => `<option value="${p.practice_id}">${fmtD(p.date)}（${yen(p.price)}）</option>`).join('');
+  openModal(`<h3>袋に現金を入れた</h3><div class="sub">入れた金額を申告してください</div>
+    <label>金額</label><input type="number" id="m-amount" inputmode="numeric" value="500">
+    <label>どの練習の分？（任意）</label><select id="m-pid"><option value="">指定しない</option>${opts}</select>
+    <button class="btn" onclick="submitCash()">申告する</button>`);
+}
+async function submitCash() {
+  const amount = Number(document.getElementById('m-amount').value);
+  if (!amount) return toast('金額を入れてください');
+  try { await api('cash', { amount, practice_id: document.getElementById('m-pid').value }); closeModal(); toast('申告しました'); await loadMe(); }
+  catch (e) { toast('失敗: ' + e.message); }
+}
+
+async function openTransfer() {
+  if (!state.members.length) state.members = (await api('members')).members;
+  const opts = state.members.filter(m => m.member_id !== state.me.member_id).map(m => `<option value="${m.member_id}">${esc(m.name)}${m.type === 'guest' ? '（助っ人）' : ''}</option>`).join('');
+  openModal(`<h3>他の人の分も払った</h3><div class="sub">あなたの支払いのうち、その人の分に付け替えます（お金は増えません）</div>
+    <label>誰の分？</label><select id="m-target">${opts}</select>
+    <label>金額</label><input type="number" id="m-amount" inputmode="numeric" value="500">
+    <button class="btn" onclick="submitTransfer()">申告する</button>`);
+}
+async function submitTransfer() {
+  const amount = Number(document.getElementById('m-amount').value);
+  const target = document.getElementById('m-target').value;
+  if (!amount || !target) return toast('入力してください');
+  try { await api('transfer', { target_member_id: target, amount }); closeModal(); toast('付け替えました'); await loadMe(); }
+  catch (e) { toast('失敗: ' + e.message); }
+}
+
+function openGuest() {
+  const opts = state.practices.map(p => `<option value="${p.practice_id}">${fmtD(p.date)}</option>`).join('');
+  if (!opts) return toast('練習日が登録されていません');
+  openModal(`<h3>助っ人を連れてきた</h3>
+    <label>名前</label><input type="text" id="m-name" placeholder="例: 田中さん">
+    <label>どの練習？</label><select id="m-pid">${opts}</select>
+    <button class="btn" onclick="submitGuest()">登録する</button>`);
+}
+async function submitGuest() {
+  const name = document.getElementById('m-name').value.trim();
+  if (!name) return toast('名前を入れてください');
+  try { await api('guest', { name, practice_id: document.getElementById('m-pid').value }); state.members = []; closeModal(); toast('登録しました'); }
+  catch (e) { toast('失敗: ' + e.message); }
+}
+
+// ---- 履歴 ----
+async function loadHistory() {
+  const d = await api('history');
+  document.getElementById('hist-pay').innerHTML = d.payments.map(p => `
+    <div class="row"><div class="l"><div class="t">${yen(p.amount)} <span class="pill">${{ paypay: 'PayPay', cash: '現金', transfer: '付け替え' }[p.method] || p.method}</span></div>
+    <div class="s">${fmtD(p.date)} ${esc(p.note || '')}</div></div></div>`).join('') || '<div class="sub">まだありません</div>';
+  document.getElementById('hist-att').innerHTML = d.attendance.map(a => `
+    <div class="row"><div class="l"><div class="t">${fmtD(a.date)}</div></div>
+    <span class="pill">${{ attended: '出席', will_attend: '参加予定', absent: '欠席' }[a.status] || a.status}</span></div>`).join('') || '<div class="sub">まだありません</div>';
+}
+
+// ---- 管理者 ----
+async function loadAdmin() {
+  const d = await api('admin_summary');
+  const unpaid = d.balance.filter(r => r.balance < 0);
+  const plus = d.balance.filter(r => r.balance > 0);
+  document.getElementById('admin-unpaid').innerHTML = unpaid.map(r => `
+    <div class="row"><div class="l"><div class="t">${esc(r.name)}${r.type === 'guest' ? ' <span class="pill">助っ人</span>' : ''}</div><div class="s">${esc(r.unpaid)}</div></div>
+    <span class="pill red">${yen(-r.balance)}</span></div>`).join('') || '<div class="sub">未払いはありません</div>';
+  document.getElementById('admin-plus').innerHTML = plus.map(r => `
+    <div class="row"><div class="l"><div class="t">${esc(r.name)}</div></div><span class="pill blue">+${yen(r.balance)}</span></div>`).join('') || '<div class="sub">ありません</div>';
+  document.getElementById('admin-unmatched').innerHTML = d.unmatched.map(u => `
+    <div class="row"><div class="l"><div class="t">${esc(u.name)}</div><div class="s">${fmtD(u.date)}</div></div><span class="pill">${yen(u.amount)}</span></div>`).join('') || '<div class="sub">ありません</div>';
+
+  document.getElementById('admin-practices').innerHTML = state.practices.map(p => `
+    <div class="row"><div class="l"><div class="t">${fmtD(p.date)} <span class="pill">${yen(p.price)}</span></div>
+    <div class="s">${p.status === 'confirmed' ? '確定済み' : '未確定'}</div></div>
+    <button class="btn ghost" style="width:auto;margin:0;padding:8px 14px" onclick="openConfirm('${p.practice_id}')">${p.status === 'confirmed' ? '修正' : '確定'}</button></div>`).join('') || '<div class="sub">練習日がありません</div>';
+}
+
+async function createPractice() {
+  const date = document.getElementById('np-date').value;
+  if (!date) return toast('日付を選んでください');
+  try {
+    await api('admin_create_practice', { date, place: document.getElementById('np-place').value, price: document.getElementById('np-price').value });
+    toast('追加しました'); await loadMe(); await loadAdmin();
+  } catch (e) { toast('失敗: ' + e.message); }
+}
+
+async function openConfirm(pid) {
+  if (!state.members.length) state.members = (await api('members')).members;
+  // 参加表明者を事前チェック（attendance を members ごとに知るため history ではなく簡易に: 全員リストを出し、参加表明者にチェック）
+  const d = await api('admin_attendance', { practice_id: pid });
+  const checked = new Set(d.attendance.filter(a => a.status !== 'absent').map(a => a.member_id));
+  const list = state.members.map(m => `
+    <label class="chk"><input type="checkbox" value="${m.member_id}" ${checked.has(m.member_id) ? 'checked' : ''}>
+    <span>${esc(m.name)}${m.type === 'guest' ? ' <span class="pill">助っ人</span>' : ''}</span></label>`).join('');
+  openModal(`<h3>出席を確定</h3><div class="sub">来た人にチェック。保存すると請求が確定します。</div>
+    <div id="confirm-list">${list}</div>
+    <button class="btn" onclick="submitConfirm('${pid}')">保存する</button>`);
+}
+async function submitConfirm(pid) {
+  const attended = [...document.querySelectorAll('#confirm-list input:checked')].map(i => i.value);
+  try { await api('admin_confirm_practice', { practice_id: pid, attended }); closeModal(); toast(`${attended.length}人で確定しました`); await loadMe(); await loadAdmin(); }
+  catch (e) { toast('失敗: ' + e.message); }
+}
+
+async function cashCount() {
+  const amount = Number(document.getElementById('cash-count').value);
+  if (!amount) return toast('金額を入れてください');
+  try { await api('admin_cash_count', { amount }); toast('記録しました'); document.getElementById('cash-count').value = ''; }
+  catch (e) { toast('失敗: ' + e.message); }
+}
+
+// ---- タブ ----
+async function show(v) {
+  ['home', 'history', 'admin'].forEach(k => document.getElementById('view-' + k).classList.toggle('hidden', k !== v));
+  document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.v === v));
+  try {
+    if (v === 'history') await loadHistory();
+    if (v === 'admin') await loadAdmin();
+  } catch (e) { toast('読み込み失敗: ' + e.message); }
+}
+
+main();
+</script>
+</body>
+</html>
