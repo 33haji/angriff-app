@@ -94,6 +94,7 @@
   .datebox b { display:block; font-size:18px; }
   .datebox small { font-size:11px; color:var(--muted); }
   .pill { display:inline-block; font-size:12px; padding:2px 9px; border-radius:999px; background:var(--bg); color:var(--muted); font-weight:600; white-space:nowrap; }
+  .pill.yes { background:var(--accent); color:#fff; } .pill.maybe { background:#D97706; color:#fff; } .pill.no { background:#1D4ED8; color:#fff; }
   .pill.ok { background:var(--ok-soft); color:#15803D; } .pill.warn { background:var(--warn-soft); color:#B91C1C; } .pill.info { background:var(--info-soft); color:#1D4ED8; } .pill.acc { background:var(--accent-soft); color:#C2410C; } .pill.amber { background:var(--amber-soft); color:#92400E; } .pill.ink { background:var(--ink); color:#fff; }
 
   .btn { display:flex; align-items:center; justify-content:center; width:100%; padding:14px; border:none; border-radius:var(--r-sm); font-size:15px; font-weight:700; background:var(--accent); color:#fff; margin-top:12px; min-height:50px; }
@@ -103,7 +104,11 @@
   .btn:disabled { opacity:.7; cursor:default; }
   label { display:block; font-size:12px; font-weight:600; color:var(--muted); margin:12px 0 6px; }
   .hint { font-size:12px; color:var(--muted); margin-top:6px; }
-  input, select { width:100%; padding:12px; font-size:16px; border:1px solid var(--line); border-radius:var(--r-sm); background:#fff; }
+  input:not([type=checkbox]), select { display:block; width:100%; min-width:0; max-width:100%; padding:12px; font-size:16px; border:1px solid var(--line); border-radius:var(--r-sm); background:#fff; -webkit-appearance:none; appearance:none; }
+  input[type=date], input[type=time] { min-height:48px; }
+  .fields { display:flex; gap:12px; } .fields > div { flex:1; min-width:0; }
+  .sticky-count { position:sticky; top:0; z-index:2; background:var(--bg); padding:10px 0; margin:0 -16px; padding-left:16px; padding-right:16px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--line); }
+  .sticky-count b { font-size:20px; }
   .opts { display:grid; gap:8px; }
   .opt { display:flex; align-items:center; gap:10px; padding:12px; border:1.5px solid var(--line); border-radius:var(--r-sm); background:#fff; text-align:left; }
   .opt.on { border-color:var(--accent); background:var(--accent-soft); }
@@ -197,7 +202,7 @@
       <div class="method">
         <div class="ic" style="background:#FDE7E2">📱</div>
         <div class="b"><div class="t">PayPayで払った</div><div class="s">あとから送った場合は、ここで登録すると未払いがすぐ消えます。</div>
-          <div class="act"><button class="copy" onclick="copyPayPay()"><span id="pp-id">—</span></button><button class="btn sm ghost" onclick="openPayPay('late')">登録する</button></div></div>
+          <div class="act"><button class="copy" onclick="copyPayPay()"><span style="font-family:inherit;font-weight:600;color:var(--muted)">PayPay ID：</span><span id="pp-id">—</span></button><button class="btn sm ghost" onclick="openPayPay('late')">登録する</button></div></div>
       </div>
       <div class="method">
         <div class="ic" style="background:#E7F6EC">👛</div>
@@ -215,8 +220,8 @@
     <div class="card">
       <h2>練習日を追加</h2>
       <label>日付</label><input type="date" id="np-date">
-      <div style="display:flex;gap:10px"><div style="flex:1"><label>開始</label><input type="time" id="np-start" value="19:00"></div><div style="flex:1"><label>終了</label><input type="time" id="np-end" value="21:00"></div></div>
-      <label>場所</label><input type="text" id="np-place" placeholder="例：四谷スポーツスクエア">
+      <div class="fields"><div><label>開始</label><input type="time" id="np-start" value="19:00"></div><div><label>終了</label><input type="time" id="np-end" value="22:00"></div></div>
+      <label>場所</label><input type="text" id="np-place" value="四谷スポーツスクエア">
       <label>参加費</label>
       <select id="np-price"><option value="500">500円</option><option value="300">300円</option></select>
       <button class="btn dark" onclick="run(this, createPractice)">追加する</button>
@@ -228,8 +233,10 @@
     <div class="card tight"><div class="eyebrow">名寄せできていないPayPay入金</div><div class="muted" style="padding:0 16px 6px">スプレッドシートの unmatched で紐付け</div><div id="admin-unmatched"><div class="ph" style="min-height:80px"><span class="spin"></span></div></div></div>
     <div class="card">
       <h2>袋の実額を記録</h2>
+      <div class="muted">袋のお金を回収するときに数えて入力。前回の回収以降に「現金で払った」と登録された合計と比べて、登録忘れがないか確認します。</div>
       <label>数えた金額</label><input type="number" id="cash-count" inputmode="numeric" placeholder="例: 4500">
       <button class="btn dark" onclick="run(this, cashCount)">記録する</button>
+      <div id="cash-result"></div>
     </div>
   </section>
 </main>
@@ -396,7 +403,7 @@ function renderCalendar() {
 function practiceRow(p) {
   const d = parseD(p.date);
   const st = p.status === 'confirmed' ? (p.my_status === 'attended' ? '<span class="pill">参加した</span>' : '<span class="pill">開催済み</span>')
-    : p.my_status === 'will_attend' ? '<span class="pill acc">◯ 参加</span>' : p.my_status === 'undecided' ? '<span class="pill amber">△ 未定</span>' : p.my_status === 'absent' ? '<span class="pill ink">× 欠席</span>' : '<span class="pill info">未回答</span>';
+    : p.my_status === 'will_attend' ? '<span class="pill yes">◯ 参加</span>' : p.my_status === 'undecided' ? '<span class="pill maybe">△ 未定</span>' : p.my_status === 'absent' ? '<span class="pill no">× 欠席</span>' : '<span class="pill">未回答</span>';
   return `<button class="row" onclick="openPractice('${p.practice_id}')">
     <div class="datebox"><b>${d.getDate()}</b><small>${DOW[d.getDay()]}</small></div>
     <div class="l"><div class="t">${fmtTime(p) ? fmtTime(p) + '　' : ''}${esc(p.place || '場所未定')}</div><div class="s">${countText(p)}${isFull(p) ? '　<span class="pill warn">満員</span>' : ''}</div></div>${st}<span class="chev">›</span></button>`;
@@ -492,8 +499,14 @@ async function openConfirm(pid) {
   const rowsM = state.members.map(m => `<label class="chk"><input type="checkbox" value="${m.member_id}" ${on(st[m.member_id]) ? 'checked' : ''}><span>${esc(m.name)}${st[m.member_id] === 'undecided' ? ' <span class="pill amber">△</span>' : ''}</span></label>`).join('');
   const rowsG = guests.map(g => `<label class="chk"><input type="checkbox" value="${g.member_id}" ${g.status !== 'absent' ? 'checked' : ''}><span>${esc(g.name)} <span class="pill">助っ人</span></span></label>`).join('');
   openModal(`<h3>出席を確定</h3><div class="muted">${fmtMD(d.practice.date)}。来た人にチェック。保存すると請求が確定します。</div>
-    <div class="card tight" style="margin-top:12px;padding:0 16px"><div id="confirm-list">${rowsM}${rowsG}</div></div>
+    <div class="sticky-count" style="margin-top:10px"><span class="muted">チェック中</span><span><b id="confirm-count">0</b> 人</span></div>
+    <div class="card tight" style="margin-top:12px;padding:0 16px"><div id="confirm-list" oninput="updateConfirmCount()">${rowsM}${rowsG}</div></div>
     <button class="btn dark" onclick="run(this, () => submitConfirm('${pid}'))">保存する</button>`);
+  updateConfirmCount();
+}
+function updateConfirmCount() {
+  const n = document.querySelectorAll('#confirm-list input:checked').length;
+  const el = document.getElementById('confirm-count'); if (el) el.textContent = n;
 }
 async function submitConfirm(pid) {
   const attended = [...document.querySelectorAll('#confirm-list input:checked')].map(i => i.value);
@@ -620,7 +633,8 @@ async function createPractice() {
 async function cashCount() {
   const amount = Number(document.getElementById('cash-count').value);
   if (!amount) { toast('金額を入れてください'); return; }
-  await api('admin_cash_count', { amount }); toast('記録しました'); document.getElementById('cash-count').value = '';
+  const r = await api('admin_cash_count', { amount }); document.getElementById('cash-count').value = '';
+  document.getElementById('cash-result').innerHTML = `<div class="banner ${r.diff === 0 ? 'ok' : 'warn'}" style="margin:12px 0 0"><div><div class="t">${r.diff === 0 ? '申告と一致しています' : r.diff > 0 ? `申告より ${yen(r.diff)} 多い（登録忘れの可能性）` : `申告より ${yen(-r.diff)} 少ない`}</div><div class="s">現金の申告合計 ${yen(r.declared)}${r.since ? `（${fmtMD(r.since)} 以降）` : ''} ／ 袋の実額 ${yen(r.actual)}</div></div></div>`;
 }
 
 // ---------- タブ ----------
