@@ -63,6 +63,7 @@
   .hero .seg button.on-yes { background:var(--accent); border-color:var(--accent); }
   .hero .seg button.on-maybe { background:var(--amber); border-color:var(--amber); color:#111827; }
   .hero .seg button.on-no { background:#fff; border-color:#fff; color:var(--ink); }
+  .hero .hint { color:rgba(255,255,255,.75); }
 
   .cal-head { display:flex; align-items:center; justify-content:space-between; padding:14px 16px 6px; }
   .cal-head .m { font-weight:700; font-size:16px; }
@@ -138,7 +139,7 @@
 <div class="season-band"></div>
 <main>
   <div class="top">
-    <div class="brand">Angri<span>ff</span><span class="mark" id="season-mark"></span></div>
+    <div class="brand">Angri<span>ff</span><span class="mark" id="season-mark" onclick="cycleSeason()"></span></div>
     <div class="avatar" id="avatar"></div>
   </div>
 
@@ -166,14 +167,7 @@
 
     <div class="card tight">
       <div class="eyebrow">練習に参加したときの支払い</div>
-      <div class="method">
-        <div class="ic" style="background:#FDE7E2">💸</div>
-        <div class="b">
-          <div class="t">PayPayで払う</div>
-          <div class="s"><b style="color:var(--ink)">PayPayで払った場合は登録不要です。</b>送金先に送るだけでOK。</div>
-          <div class="act"><button class="copy" onclick="copyPayPay()"><span id="pp-id">—</span></button><span class="muted" style="align-self:center">タップでコピー</span></div>
-        </div>
-      </div>
+      <div style="padding:10px 16px 12px;font-size:14px;background:var(--accent-soft);color:var(--accent-ink);font-weight:600">PayPayで支払った場合は登録不要です</div>
       <div class="method">
         <div class="ic" style="background:#E7F6EC">👛</div>
         <div class="b">
@@ -201,9 +195,9 @@
     <div class="card tight">
       <div class="eyebrow">払い忘れの支払い</div>
       <div class="method">
-        <div class="ic" style="background:#FDE7E2">💸</div>
+        <div class="ic" style="background:#FDE7E2">📱</div>
         <div class="b"><div class="t">PayPayで払った</div><div class="s">あとから送った場合は、ここで登録すると未払いがすぐ消えます。</div>
-          <div class="act"><button class="btn sm ghost" onclick="openPayPay('late')">登録する</button></div></div>
+          <div class="act"><button class="copy" onclick="copyPayPay()"><span id="pp-id">—</span></button><button class="btn sm ghost" onclick="openPayPay('late')">登録する</button></div></div>
       </div>
       <div class="method">
         <div class="ic" style="background:#E7F6EC">👛</div>
@@ -213,7 +207,7 @@
     </div>
 
     <div class="card tight"><div class="eyebrow">支払いの記録</div><div id="hist-pay"><div class="ph" style="min-height:100px"><span class="spin"></span></div></div></div>
-    <div class="card tight"><div class="eyebrow">出席の記録</div><div id="hist-att"><div class="ph" style="min-height:100px"><span class="spin"></span></div></div></div>
+    <div class="card tight" id="hist-others-card"><div class="eyebrow">他の人の分を払った記録</div><div id="hist-others"></div></div>
   </section>
 
   <!-- ================= 管理 ================= -->
@@ -221,6 +215,7 @@
     <div class="card">
       <h2>練習日を追加</h2>
       <label>日付</label><input type="date" id="np-date">
+      <div style="display:flex;gap:10px"><div style="flex:1"><label>開始</label><input type="time" id="np-start" value="19:00"></div><div style="flex:1"><label>終了</label><input type="time" id="np-end" value="21:00"></div></div>
       <label>場所</label><input type="text" id="np-place" placeholder="例：四谷スポーツスクエア">
       <label>参加費</label>
       <select id="np-price"><option value="500">500円</option><option value="300">300円</option></select>
@@ -262,9 +257,19 @@ const SEASONS = {
   autumn: { accent:'#F4511E', soft:'#FFEDE6', ink:'#9A3412', mark:'🍁' },
   winter: { accent:'#0891B2', soft:'#E0F2FE', ink:'#155E75', mark:'⛄' },
 };
-function applySeason() {
+let seasonOverride = null;
+function currentSeasonKey() {
   const m = new Date().getMonth() + 1;
-  const s = SEASONS[m >= 3 && m <= 5 ? 'spring' : m >= 6 && m <= 8 ? 'summer' : m >= 9 && m <= 11 ? 'autumn' : 'winter'];
+  return m >= 3 && m <= 5 ? 'spring' : m >= 6 && m <= 8 ? 'summer' : m >= 9 && m <= 11 ? 'autumn' : 'winter';
+}
+function cycleSeason() {
+  if (!state.isAdmin) return;
+  const keys = Object.keys(SEASONS);
+  seasonOverride = keys[(keys.indexOf(seasonOverride || currentSeasonKey()) + 1) % keys.length];
+  applySeason(); toast(`季節: ${seasonOverride}（確認用）`);
+}
+function applySeason() {
+  const s = SEASONS[seasonOverride || currentSeasonKey()];
   const r = document.documentElement.style;
   r.setProperty('--accent', s.accent); r.setProperty('--accent-soft', s.soft); r.setProperty('--accent-ink', s.ink);
   r.setProperty('--season-band', `linear-gradient(${s.soft}, #F6F7F9)`);
@@ -273,7 +278,7 @@ function applySeason() {
 }
 applySeason();
 const SPIN = '<div class="ph" style="min-height:100px"><span class="spin"></span></div>';
-let state = { me: null, isAdmin: false, unpaid: [], practices: [], paypayId: '', members: [], view: 'home' };
+let state = { me: null, isAdmin: false, unpaid: [], practices: [], paypayId: '', members: [], view: 'home', capacity: 18 };
 let calCursor = new Date(); calCursor.setDate(1);
 
 async function api(action, params = {}) {
@@ -298,6 +303,9 @@ function yen(n) { return Number(n).toLocaleString('ja-JP') + '円'; }
 function esc(s) { return String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 function parseD(s) { const [y, m, d] = String(s).slice(0, 10).split('-').map(Number); return new Date(y, m - 1, d); }
 function fmtMD(s) { const d = parseD(s); return `${d.getMonth() + 1}/${d.getDate()}（${DOW[d.getDay()]}）`; }
+function fmtTime(p) { return p.start ? `${p.start}${p.end ? '–' + p.end : ''}` : ''; }
+function fmtWhen(p) { const t = fmtTime(p); return fmtMD(p.date) + (t ? ' ' + t : ''); }
+function isFull(p) { return state.capacity && p.count_attend >= state.capacity && p.my_status !== 'will_attend'; }
 function ymd(d) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
 function todayStr() { return ymd(new Date()); }
 function openModal(html) { document.getElementById('modal-body').innerHTML = html; document.getElementById('modal').classList.remove('hidden'); }
@@ -323,7 +331,7 @@ async function main() {
 
 async function loadMe() {
   const d = await api('me');
-  state.me = d.me; state.isAdmin = d.isAdmin; state.unpaid = d.unpaid || []; state.practices = d.practices; state.paypayId = d.paypayId;
+  state.me = d.me; state.isAdmin = d.isAdmin; state.unpaid = d.unpaid || []; state.practices = d.practices; state.paypayId = d.paypayId; state.capacity = d.capacity || 18;
   const av = document.getElementById('avatar'); if (!av.querySelector('img')) av.textContent = (d.me.name || '?').trim().slice(0, 1);
   document.getElementById('tab-admin').classList.toggle('hidden', !d.isAdmin);
   document.getElementById('pp-id').textContent = d.paypayId || '—';
@@ -335,10 +343,13 @@ async function loadMe() {
 // ---------- 出欠 3択 ----------
 const ATT = { will_attend: { mk: '◯', lb: '参加', cls: 'on-yes' }, undecided: { mk: '△', lb: '未定', cls: 'on-maybe' }, absent: { mk: '×', lb: '欠席', cls: 'on-no' } };
 function seg3(pid, mine, after) {
-  return `<div class="seg">${Object.entries(ATT).map(([k, v]) => `<button class="${mine === k ? v.cls : ''}" onclick="run(this, () => attend('${pid}','${k}','${after || ''}'))"><span class="mk">${v.mk}</span><span class="lb">${v.lb}</span></button>`).join('')}</div>`;
+  const p = practiceById(pid), full = p && isFull(p);
+  return `<div class="seg">${Object.entries(ATT).map(([k, v]) => `<button class="${mine === k ? v.cls : ''}" ${full && k === 'will_attend' ? 'disabled style="opacity:.4"' : ''} onclick="run(this, () => attend('${pid}','${k}','${after || ''}'))"><span class="mk">${v.mk}</span><span class="lb">${v.lb}</span></button>`).join('')}</div>
+    ${full ? `<div class="hint">定員（${state.capacity}人）に達しているため「参加」にできません</div>` : ''}`;
 }
 async function attend(pid, status, after) {
-  await api('attend', { practice_id: pid, status });
+  try { await api('attend', { practice_id: pid, status }); }
+  catch (e) { if (e.message === 'full') { toast(`定員（${state.capacity}人）に達しています`); await loadMe(); return; } throw e; }
   toast(`${ATT[status].lb}で登録しました`);
   await loadMe();
   if (after === 'detail') openPractice(pid);
@@ -354,8 +365,8 @@ function renderHome() {
       <button class="more" onclick="openPractice('${next.practice_id}')">詳細 ›</button>
       <div class="eyebrow">次の練習</div>
       <div class="date">${fmtMD(next.date)}</div>
-      <div class="place">${esc(next.place || '場所未定')}</div>
-      <div class="meta"><span>${countText(next)}</span></div>
+      <div class="place">${fmtTime(next) ? '🕒 ' + fmtTime(next) + '　' : ''}📍 ${esc(next.place || '場所未定')}</div>
+      <div class="meta"><span>${countText(next)}</span>${isFull(next) ? '<span class="pill warn">満員</span>' : ''}</div>
       ${seg3(next.practice_id, next.my_status)}
     </div>` : `<div class="hero" style="min-height:auto"><div class="eyebrow">次の練習</div><div class="place">まだ予定が入っていません</div></div>`;
   renderCalendar();
@@ -380,7 +391,7 @@ function renderCalendar() {
   }
   document.getElementById('cal').innerHTML = html;
   const list = state.practices.filter(p => p.date.startsWith(`${y}-${String(m + 1).padStart(2, '0')}`)).sort((a, b) => a.date.localeCompare(b.date));
-  document.getElementById('month-list').innerHTML = `<div class="eyebrow">${m + 1}月の練習</div>` + (list.map(practiceRow).join('') || '<div class="empty">この月の練習はありません</div>');
+  document.getElementById('month-list').innerHTML = `<div class="eyebrow">${m + 1}月の練習</div>` + (list.map(practiceRow).join('') || '<div class="empty">この月の練習はありません</div>') + `<div class="muted" style="padding:6px 16px 12px;font-size:11px">※参加人数には助っ人も含みます。定員は${state.capacity}人です</div>`;
 }
 function practiceRow(p) {
   const d = parseD(p.date);
@@ -388,7 +399,7 @@ function practiceRow(p) {
     : p.my_status === 'will_attend' ? '<span class="pill acc">◯ 参加</span>' : p.my_status === 'undecided' ? '<span class="pill amber">△ 未定</span>' : p.my_status === 'absent' ? '<span class="pill ink">× 欠席</span>' : '<span class="pill info">未回答</span>';
   return `<button class="row" onclick="openPractice('${p.practice_id}')">
     <div class="datebox"><b>${d.getDate()}</b><small>${DOW[d.getDay()]}</small></div>
-    <div class="l"><div class="t">${esc(p.place || '場所未定')}</div><div class="s">${countText(p)}</div></div>${st}<span class="chev">›</span></button>`;
+    <div class="l"><div class="t">${fmtTime(p) ? fmtTime(p) + '　' : ''}${esc(p.place || '場所未定')}</div><div class="s">${countText(p)}${isFull(p) ? '　<span class="pill warn">満員</span>' : ''}</div></div>${st}<span class="chev">›</span></button>`;
 }
 
 // ---------- 出欠をまとめて回答 ----------
@@ -405,8 +416,9 @@ function openBulk() {
 function bulkRow(p) {
   const cur = bulkDraft[p.practice_id];
   return `<div class="card" id="bulk-${p.practice_id}" style="margin:8px 0;padding:12px 14px">
-    <div style="display:flex;align-items:center;justify-content:space-between"><div><b>${fmtMD(p.date)}</b><div class="muted">📍 ${esc(p.place || '場所未定')}</div></div><span class="muted">${countText(p)}</span></div>
-    <div class="seg" style="margin-top:10px">${Object.entries(ATT).map(([k, v]) => `<button class="${cur === k ? v.cls : ''}" onclick="pickBulk('${p.practice_id}','${k}')"><span class="mk">${v.mk}</span><span class="lb">${v.lb}</span></button>`).join('')}</div>
+    <div style="display:flex;align-items:center;justify-content:space-between"><div><b>${fmtWhen(p)}</b><div class="muted">📍 ${esc(p.place || '場所未定')}</div></div><span class="muted">${countText(p)}</span></div>
+    <div class="seg" style="margin-top:10px">${Object.entries(ATT).map(([k, v]) => `<button class="${cur === k ? v.cls : ''}" ${isFull(p) && k === 'will_attend' ? 'disabled style="opacity:.4"' : ''} onclick="pickBulk('${p.practice_id}','${k}')"><span class="mk">${v.mk}</span><span class="lb">${v.lb}</span></button>`).join('')}</div>
+    ${isFull(p) ? `<div class="hint">定員（${state.capacity}人）に達しているため「参加」にできません</div>` : ''}
   </div>`;
 }
 function pickBulk(pid, status) {
@@ -416,8 +428,8 @@ function pickBulk(pid, status) {
 async function saveBulk() {
   const items = Object.entries(bulkDraft).filter(([pid, st]) => st && st !== (practiceById(pid) || {}).my_status).map(([practice_id, status]) => ({ practice_id, status }));
   if (!items.length) { toast('変更はありません'); closeModal(); return; }
-  await api('attend_bulk', { items });
-  closeModal(); toast(`${items.length}件の出欠を保存しました`); await loadMe();
+  const r = await api('attend_bulk', { items });
+  closeModal(); toast(r.skipped && r.skipped.length ? `${r.saved}件保存（${r.skipped.length}件は定員のため参加にできず）` : `${items.length}件の出欠を保存しました`); await loadMe();
 }
 
 // ---------- 練習の詳細 ----------
@@ -432,17 +444,17 @@ async function openPractice(pid) {
     const guests = d.attendees.filter(a => a.type === 'guest');
     const names = arr => arr.map(a => `<div class="row"><div class="l"><div class="t">${esc(a.name)}</div></div></div>`).join('') || '<div class="empty">まだいません</div>';
     openModal(`
-      <h3>${fmtMD(p.date)}${p.status === 'confirmed' ? ' <span class="pill">終了</span>' : ''}</h3>
-      <div class="card" style="margin:10px 0 0;padding:12px 14px;display:flex;gap:12px;align-items:center">
-        <div style="font-size:22px">📍</div>
-        <div style="flex:1"><div style="font-weight:700">${esc(p.place || '場所未定')}</div><div class="muted">参加費 ${yen(p.price)}</div></div>
+      <h3>${fmtMD(p.date)}${p.status === 'confirmed' ? ' <span class="pill">開催済み</span>' : ''}</h3>
+      <div class="card" style="margin:10px 0 0;padding:12px 14px">
+        ${fmtTime(p) ? `<div style="display:flex;gap:10px;align-items:center;margin-bottom:8px"><span style="font-size:18px">🕒</span><b>${fmtTime(p)}</b></div>` : ''}
+        <div style="display:flex;gap:10px;align-items:center"><span style="font-size:18px">📍</span><div><b>${esc(p.place || '場所未定')}</b><div class="muted">参加費 ${yen(p.price)}</div></div></div>
       </div>
       ${p.status === 'scheduled' ? seg3(pid, p.my_status, 'detail') : ''}
       <div class="card tight" style="margin-top:14px"><div class="eyebrow">${p.status === 'confirmed' ? '出席' : '◯ 参加'}（${yes.length}人）</div>${names(yes)}</div>
       ${p.status === 'scheduled' ? `<div class="card tight"><div class="eyebrow">△ 未定（${maybe.length}人）</div>${names(maybe)}</div>` : ''}
       <div class="card tight"><div class="eyebrow">助っ人（${guests.length}人）</div>
         ${guests.map(a => `<div class="row"><div class="l"><div class="t">${esc(a.name)}</div><div class="s">${esc(a.brought_by || '')} が登録</div></div>${a.paid === true ? '<span class="pill ok">支払い済み</span>' : a.paid === false ? '<span class="pill warn">未払い</span>' : ''}</div>`).join('') || '<div class="empty">まだいません</div>'}
-        <div style="padding:8px 16px 14px"><button class="btn ghost" style="margin:0" onclick="openGuest('${pid}')">助っ人を追加</button></div></div>
+        ${p.status === 'scheduled' ? `<div style="padding:8px 16px 14px"><button class="btn ghost" style="margin:0" onclick="openGuest('${pid}')">助っ人を追加</button></div>` : '<div style="height:8px"></div>'}</div>
       ${state.isAdmin ? `<button class="btn dark" onclick="openConfirm('${pid}')">${p.status === 'confirmed' ? '出席を修正する' : '出席を確定する'}</button>` : ''}`);
   } catch (e) { openModal(`<div class="empty">読み込めませんでした: ${esc(e.message)}</div>`); }
 }
@@ -465,7 +477,8 @@ async function submitGuest(pid) {
   const name = document.getElementById('g-name').value.trim();
   const pay = document.querySelector('#g-pay .opt.on').dataset.v;
   if (!name) { toast('名前を入れてください'); return; }
-  await api('guest', { name, practice_id: pid, payment: pay });
+  try { await api('guest', { name, practice_id: pid, payment: pay }); }
+  catch (e) { if (e.message === 'full') { toast(`定員（${state.capacity}人）に達しているため追加できません`); return; } throw e; }
   state.members = []; toast('登録しました'); await loadMe(); openPractice(pid);
 }
 
@@ -506,14 +519,14 @@ function copyPayPay() {
  */
 function practiceSelect(id, mode) {
   const today = todayStr();
-  const near = state.practices.filter(p => Math.abs((parseD(p.date) - parseD(today)) / 864e5) <= 7).sort((a, b) => Math.abs(parseD(a.date) - parseD(today)) - Math.abs(parseD(b.date) - parseD(today)));
+  const near = state.practices.filter(p => p.date >= today && (parseD(p.date) - parseD(today)) / 864e5 <= 14).sort((a, b) => a.date.localeCompare(b.date));
   const unpaid = state.unpaid.map(u => ({ practice_id: u.practice_id, date: u.date, price: u.price, tag: '未払い' }));
   const past = state.practices.filter(p => p.date <= today).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 8);
-  const order = mode === 'late' ? [...unpaid, ...past] : [...near, ...unpaid, ...past];
+  const order = mode === 'late' ? [...unpaid, ...past] : near;
   const seen = new Set(), opts = [];
   order.forEach(p => { if (seen.has(p.practice_id)) return; seen.add(p.practice_id);
     const tag = p.tag || (state.unpaid.some(u => u.practice_id === p.practice_id) ? '未払い' : '');
-    opts.push(`<option value="${p.practice_id}" data-price="${p.price}">${fmtMD(p.date)}${tag ? `（${tag}）` : ''}</option>`); });
+    opts.push(`<option value="${p.practice_id}" data-price="${p.price}">${fmtWhen(p)}${tag ? `（${tag}）` : ''}</option>`); });
   opts.push(`<option value="" data-price="">複数回分をまとめて・その他</option>`);
   return `<select id="${id}" onchange="syncAmount('${id}')">${opts.join('')}</select>`;
 }
@@ -575,11 +588,13 @@ async function submitPair(action, key, selId) {
 }
 async function loadHistory() {
   const d = await api('history');
-  const label = p => p.method === 'transfer' ? (p.amount < 0 ? '他の人の分' : '払ってもらった') : ({ paypay: 'PayPay', paypay_pending: 'PayPay（確認待ち）', cash: '現金' }[p.method] || p.method);
-  document.getElementById('hist-pay').innerHTML = d.payments.slice(0, 20).map(p => `
-    <div class="row"><div class="l"><div class="t">${p.amount < 0 ? '−' : ''}${yen(Math.abs(p.amount))}</div><div class="s">${fmtMD(p.date)} ${esc(p.note || '')}</div></div><span class="pill">${label(p)}</span></div>`).join('') || '<div class="empty">まだありません</div>';
-  document.getElementById('hist-att').innerHTML = d.attendance.filter(a => a.status === 'attended').slice(0, 20).map(a => `
-    <div class="row"><div class="l"><div class="t">${fmtMD(a.date)}</div></div><span class="pill">${yen(a.price)}</span></div>`).join('') || '<div class="empty">まだありません</div>';
+  const cls = s => s === '未払い' || s === '一部未払い' ? 'warn' : s === '未連携' ? 'amber' : s === '免除' ? '' : 'ok';
+  document.getElementById('hist-pay').innerHTML = (d.practices || []).slice(0, 30).map(r => `
+    <div class="row"><div class="l"><div class="t">${fmtMD(r.date)}</div><div class="s">${yen(r.price)}</div></div><span class="pill ${cls(r.status)}">${r.status}</span></div>`).join('') || '<div class="empty">まだありません</div>';
+  const others = d.forOthers || [];
+  document.getElementById('hist-others-card').classList.toggle('hidden', !others.length);
+  document.getElementById('hist-others').innerHTML = others.slice(0, 20).map(o => `
+    <div class="row"><div class="l"><div class="t">${esc(o.name)} の分</div><div class="s">${fmtMD(o.date)} ${esc(o.note || '')}</div></div><span class="pill">${yen(o.amount)}</span></div>`).join('');
 }
 
 // ---------- 管理 ----------
@@ -593,13 +608,13 @@ async function loadAdmin() {
   const today = todayStr();
   const ps = state.practices.filter(p => p.date <= today || p.status === 'scheduled').sort((a, b) => b.date.localeCompare(a.date)).slice(0, 10);
   document.getElementById('admin-practices').innerHTML = ps.map(p => `
-    <div class="row"><div class="l"><div class="t">${fmtMD(p.date)}</div><div class="s">${esc(p.place || '')} ・ ${countText(p)}</div></div>
+    <div class="row"><div class="l"><div class="t">${fmtWhen(p)}</div><div class="s">${esc(p.place || '')} ・ ${countText(p)}</div></div>
     <button class="btn sm ${p.status === 'confirmed' ? 'ghost' : 'dark'}" onclick="openConfirm('${p.practice_id}')">${p.status === 'confirmed' ? '修正' : '確定'}</button></div>`).join('') || '<div class="empty">練習がありません</div>';
 }
 async function createPractice() {
   const date = document.getElementById('np-date').value;
   if (!date) { toast('日付を選んでください'); return; }
-  await api('admin_create_practice', { date, place: document.getElementById('np-place').value, price: document.getElementById('np-price').value });
+  await api('admin_create_practice', { date, place: document.getElementById('np-place').value, price: document.getElementById('np-price').value, start: document.getElementById('np-start').value, end: document.getElementById('np-end').value });
   toast('追加しました'); document.getElementById('np-date').value = ''; await loadMe(); await loadAdmin();
 }
 async function cashCount() {
