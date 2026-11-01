@@ -8,73 +8,80 @@
 <style>
   :root {
     --bg:#F6F7F9; --card:#FFFFFF; --ink:#111827; --muted:#6B7280; --faint:#9CA3AF; --line:#E5E7EB;
-    --accent:#F4511E; --accent-soft:#FFEDE6; --ok:#16A34A; --ok-soft:#E7F6EC; --warn:#DC2626; --warn-soft:#FDECEC; --info:#2563EB; --info-soft:#E8F0FE;
+    --accent:#F4511E; --accent-soft:#FFEDE6; --amber:#F59E0B; --amber-soft:#FEF3C7;
+    --ok:#16A34A; --ok-soft:#E7F6EC; --warn:#DC2626; --warn-soft:#FDECEC; --info:#2563EB; --info-soft:#E8F0FE;
     --r:16px; --r-sm:12px;
   }
   * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
   html, body { margin:0; background:var(--bg); color:var(--ink); font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",sans-serif; font-size:15px; line-height:1.5; }
-  button { font:inherit; color:inherit; }
+  button { font:inherit; color:inherit; cursor:pointer; }
   main { max-width:520px; margin:0 auto; padding:0 16px calc(84px + env(safe-area-inset-bottom)); }
   .hidden { display:none !important; }
 
-  /* header */
+  /* spinner (shared by page / modules / buttons) */
+  @keyframes spin { to { transform:rotate(360deg); } }
+  .spin { display:inline-block; width:18px; height:18px; border:2.5px solid currentColor; border-right-color:transparent; border-radius:50%; animation:spin .7s linear infinite; vertical-align:middle; }
+  .ph { display:flex; align-items:center; justify-content:center; color:var(--faint); }
+  .page-loading { min-height:60vh; }
+
   .top { display:flex; align-items:center; justify-content:space-between; padding:18px 0 10px; }
   .brand { font-weight:800; font-size:22px; letter-spacing:.02em; }
   .brand span { color:var(--accent); }
-  .avatar { width:36px; height:36px; border-radius:50%; background:var(--ink); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:14px; }
+  .avatar { width:38px; height:38px; border-radius:50%; background:var(--ink); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:14px; overflow:hidden; }
+  .avatar img { width:100%; height:100%; object-fit:cover; }
 
-  /* cards */
   .card { background:var(--card); border-radius:var(--r); padding:16px; margin:12px 0; box-shadow:0 1px 2px rgba(17,24,39,.04), 0 4px 16px rgba(17,24,39,.04); }
   .card.tight { padding:0; overflow:hidden; }
-  .eyebrow { font-size:12px; font-weight:600; color:var(--muted); letter-spacing:.04em; text-transform:uppercase; margin-bottom:8px; }
+  .eyebrow { font-size:12px; font-weight:600; color:var(--muted); letter-spacing:.04em; margin-bottom:8px; }
+  .card.tight .eyebrow { padding:14px 16px 4px; margin:0; }
   h2 { font-size:17px; margin:0 0 6px; font-weight:700; }
   .muted { color:var(--muted); font-size:13px; }
 
-  /* status banner */
   .banner { display:flex; align-items:center; gap:12px; padding:14px 16px; border-radius:var(--r); margin:12px 0; }
   .banner.ok { background:var(--ok-soft); color:#14532D; }
   .banner.warn { background:var(--warn-soft); color:#7F1D1D; }
-  .banner .ic { width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex:none; background:#fff; }
+  .banner .ic { width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex:none; background:#fff; font-weight:800; }
   .banner .t { font-weight:700; }
   .banner .s { font-size:13px; opacity:.85; }
-  .banner .go { margin-left:auto; font-size:13px; font-weight:600; white-space:nowrap; background:none; border:none; padding:6px 0; }
 
-  /* hero (next practice) */
-  .hero { background:var(--ink); color:#fff; border-radius:var(--r); padding:18px; margin:12px 0; position:relative; overflow:hidden; }
+  .hero { background:var(--ink); color:#fff; border-radius:var(--r); padding:18px; margin:12px 0; position:relative; overflow:hidden; min-height:190px; }
   .hero .eyebrow { color:rgba(255,255,255,.6); }
   .hero .date { font-size:26px; font-weight:800; line-height:1.2; }
   .hero .place { color:rgba(255,255,255,.75); font-size:14px; margin-top:4px; }
   .hero .meta { display:flex; gap:14px; margin-top:12px; font-size:13px; color:rgba(255,255,255,.75); }
-  .hero .seg { margin-top:14px; }
-  .hero .seg button { background:rgba(255,255,255,.1); border:1px solid rgba(255,255,255,.18); color:#fff; }
-  .hero .seg button.on { background:var(--accent); border-color:var(--accent); }
-  .hero .seg button.on.no { background:rgba(255,255,255,.25); border-color:transparent; }
   .hero .more { position:absolute; top:14px; right:14px; background:rgba(255,255,255,.12); border:none; color:#fff; border-radius:999px; padding:6px 12px; font-size:12px; font-weight:600; }
 
-  .seg { display:flex; gap:8px; }
-  .seg button { flex:1; padding:11px; border:1px solid var(--line); background:#fff; border-radius:var(--r-sm); font-weight:600; }
-  .seg button.on { background:var(--accent); color:#fff; border-color:var(--accent); }
-  .seg button.on.no { background:#6B7280; border-color:#6B7280; color:#fff; }
+  /* 出欠 3択 */
+  .seg { display:flex; gap:8px; margin-top:14px; }
+  .seg button { flex:1; padding:10px 6px; border:1.5px solid var(--line); background:#fff; border-radius:var(--r-sm); font-weight:700; display:flex; flex-direction:column; align-items:center; gap:2px; line-height:1.1; }
+  .seg button .mk { font-size:20px; }
+  .seg button .lb { font-size:12px; font-weight:600; }
+  .seg button.on-yes { background:var(--accent); border-color:var(--accent); color:#fff; }
+  .seg button.on-maybe { background:var(--amber); border-color:var(--amber); color:#111827; }
+  .seg button.on-no { background:var(--ink); border-color:var(--ink); color:#fff; }
+  .hero .seg button { background:rgba(255,255,255,.08); border-color:rgba(255,255,255,.18); color:#fff; }
+  .hero .seg button.on-yes { background:var(--accent); border-color:var(--accent); }
+  .hero .seg button.on-maybe { background:var(--amber); border-color:var(--amber); color:#111827; }
+  .hero .seg button.on-no { background:#fff; border-color:#fff; color:var(--ink); }
 
-  /* calendar */
   .cal-head { display:flex; align-items:center; justify-content:space-between; padding:14px 16px 6px; }
   .cal-head .m { font-weight:700; font-size:16px; }
   .cal-head button { border:none; background:var(--bg); width:32px; height:32px; border-radius:50%; font-size:16px; }
-  .cal { display:grid; grid-template-columns:repeat(7,1fr); padding:0 10px 12px; }
+  .cal { display:grid; grid-template-columns:repeat(7,1fr); padding:0 10px 12px; min-height:300px; }
   .cal .dow { text-align:center; font-size:11px; color:var(--faint); padding:6px 0; font-weight:600; }
-  .cal .d { aspect-ratio:1; display:flex; flex-direction:column; align-items:center; justify-content:center; border:none; background:none; border-radius:50%; font-size:14px; position:relative; margin:2px; }
+  .cal .d { aspect-ratio:1; display:flex; align-items:center; justify-content:center; border:none; background:none; border-radius:50%; font-size:14px; margin:2px; }
   .cal .d.out { color:var(--line); }
   .cal .d.today { font-weight:800; color:var(--accent); }
   .cal .d.has { background:var(--accent-soft); color:#9A3412; font-weight:700; }
   .cal .d.has.mine { background:var(--accent); color:#fff; }
+  .cal .d.has.maybe { background:var(--amber-soft); color:#92400E; }
   .cal .d.has.done { background:var(--bg); color:var(--muted); }
   .cal .d.has.done.mine { background:#D1D5DB; color:#111827; }
-  .legend { display:flex; gap:14px; padding:0 16px 14px; font-size:12px; color:var(--muted); }
+  .legend { display:flex; flex-wrap:wrap; gap:12px; padding:0 16px 14px; font-size:12px; color:var(--muted); }
   .legend i { display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:5px; vertical-align:-1px; }
 
-  /* list rows */
   .row { display:flex; align-items:center; gap:12px; padding:12px 16px; border-top:1px solid var(--line); background:none; border-left:none; border-right:none; border-bottom:none; width:100%; text-align:left; }
-  .row:first-child { border-top:none; }
+  .row:first-child, .eyebrow + .row { border-top:none; }
   .row .l { flex:1; min-width:0; }
   .row .t { font-weight:600; }
   .row .s { font-size:13px; color:var(--muted); }
@@ -82,46 +89,45 @@
   .datebox { width:46px; flex:none; text-align:center; background:var(--bg); border-radius:10px; padding:6px 0; line-height:1.15; }
   .datebox b { display:block; font-size:18px; }
   .datebox small { font-size:11px; color:var(--muted); }
-  .pill { display:inline-block; font-size:12px; padding:2px 9px; border-radius:999px; background:var(--bg); color:var(--muted); font-weight:600; }
-  .pill.ok { background:var(--ok-soft); color:#15803D; } .pill.warn { background:var(--warn-soft); color:#B91C1C; } .pill.info { background:var(--info-soft); color:#1D4ED8; } .pill.acc { background:var(--accent-soft); color:#C2410C; }
+  .pill { display:inline-block; font-size:12px; padding:2px 9px; border-radius:999px; background:var(--bg); color:var(--muted); font-weight:600; white-space:nowrap; }
+  .pill.ok { background:var(--ok-soft); color:#15803D; } .pill.warn { background:var(--warn-soft); color:#B91C1C; } .pill.info { background:var(--info-soft); color:#1D4ED8; } .pill.acc { background:var(--accent-soft); color:#C2410C; } .pill.amber { background:var(--amber-soft); color:#92400E; } .pill.ink { background:var(--ink); color:#fff; }
 
-  /* action tiles */
-  .tiles { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-  .tile { background:var(--card); border:none; border-radius:var(--r); padding:16px 14px; text-align:left; box-shadow:0 1px 2px rgba(17,24,39,.04), 0 4px 16px rgba(17,24,39,.04); }
-  .tile .ic { width:36px; height:36px; border-radius:12px; display:flex; align-items:center; justify-content:center; margin-bottom:10px; }
-  .tile .t { font-weight:700; font-size:14px; }
-  .tile .s { font-size:12px; color:var(--muted); margin-top:2px; }
-
-  /* buttons / forms */
-  .btn { display:block; width:100%; padding:14px; border:none; border-radius:var(--r-sm); font-size:15px; font-weight:700; background:var(--accent); color:#fff; margin-top:12px; }
+  .btn { display:flex; align-items:center; justify-content:center; width:100%; padding:14px; border:none; border-radius:var(--r-sm); font-size:15px; font-weight:700; background:var(--accent); color:#fff; margin-top:12px; min-height:50px; }
   .btn.ghost { background:#fff; color:var(--ink); border:1px solid var(--line); }
   .btn.dark { background:var(--ink); }
-  .btn.sm { padding:9px 14px; width:auto; margin:0; font-size:13px; }
-  .btn:disabled { opacity:.5; }
+  .btn.sm { padding:8px 14px; width:auto; margin:0; font-size:13px; min-height:36px; }
+  .btn:disabled { opacity:.7; cursor:default; }
   label { display:block; font-size:12px; font-weight:600; color:var(--muted); margin:12px 0 6px; }
+  .hint { font-size:12px; color:var(--muted); margin-top:6px; }
   input, select { width:100%; padding:12px; font-size:16px; border:1px solid var(--line); border-radius:var(--r-sm); background:#fff; }
   .opts { display:grid; gap:8px; }
   .opt { display:flex; align-items:center; gap:10px; padding:12px; border:1.5px solid var(--line); border-radius:var(--r-sm); background:#fff; text-align:left; }
   .opt.on { border-color:var(--accent); background:var(--accent-soft); }
   .opt .t { font-weight:600; font-size:14px; } .opt .s { font-size:12px; color:var(--muted); }
   .copy { display:inline-flex; align-items:center; gap:8px; background:var(--bg); border:none; border-radius:999px; padding:8px 14px; font-weight:700; font-family:ui-monospace,Menlo,monospace; }
+  .method { display:flex; gap:12px; align-items:flex-start; padding:14px 16px; border-top:1px solid var(--line); }
+  .method:first-child { border-top:none; }
+  .method .ic { width:40px; height:40px; border-radius:12px; display:flex; align-items:center; justify-content:center; flex:none; font-size:20px; }
+  .method .b { flex:1; min-width:0; }
+  .method .t { font-weight:700; }
+  .method .s { font-size:13px; color:var(--muted); margin-top:2px; }
+  .method .act { margin-top:8px; display:flex; gap:8px; flex-wrap:wrap; }
+  .link { background:none; border:none; padding:0; color:var(--info); font-size:13px; font-weight:600; }
 
-  /* tabs */
-  .tabs { position:fixed; bottom:0; left:0; right:0; background:rgba(255,255,255,.92); backdrop-filter:blur(12px); border-top:1px solid var(--line); display:flex; padding-bottom:env(safe-area-inset-bottom); }
-  .tabs button { flex:1; padding:10px 0 8px; border:none; background:none; font-size:11px; font-weight:600; color:var(--faint); display:flex; flex-direction:column; align-items:center; gap:3px; }
+  .tabs { position:fixed; bottom:0; left:0; right:0; background:rgba(255,255,255,.92); backdrop-filter:blur(12px); border-top:1px solid var(--line); display:flex; padding-bottom:env(safe-area-inset-bottom); z-index:5; }
+  .tabs button { flex:1; padding:10px 0 8px; border:none; background:none; font-size:11px; font-weight:600; color:var(--faint); display:flex; flex-direction:column; align-items:center; gap:3px; position:relative; }
   .tabs button.on { color:var(--accent); }
   .tabs svg { width:24px; height:24px; }
+  .tabs .dot { position:absolute; top:8px; left:calc(50% + 8px); width:9px; height:9px; border-radius:50%; background:var(--warn); border:2px solid #fff; }
 
-  /* modal sheet */
   .modal { position:fixed; inset:0; background:rgba(17,24,39,.45); display:flex; align-items:flex-end; z-index:20; }
-  .sheet { background:var(--bg); width:100%; max-width:560px; margin:0 auto; border-radius:22px 22px 0 0; padding:10px 16px calc(20px + env(safe-area-inset-bottom)); max-height:88vh; overflow:auto; }
+  .sheet { background:var(--bg); width:100%; max-width:560px; margin:0 auto; border-radius:22px 22px 0 0; padding:10px 16px calc(20px + env(safe-area-inset-bottom)); max-height:88vh; overflow:auto; min-height:220px; }
   .grip { width:40px; height:4px; border-radius:2px; background:var(--line); margin:4px auto 14px; }
   .sheet h3 { margin:0 0 4px; font-size:19px; font-weight:800; }
   .chk { display:flex; align-items:center; gap:12px; padding:11px 0; border-top:1px solid var(--line); }
   .chk input { width:22px; height:22px; accent-color:var(--accent); }
   .toast { position:fixed; left:50%; bottom:90px; transform:translateX(-50%); background:var(--ink); color:#fff; padding:10px 16px; border-radius:999px; font-size:14px; opacity:0; transition:opacity .2s; pointer-events:none; z-index:30; white-space:nowrap; }
   .toast.show { opacity:1; }
-  .loading { text-align:center; color:var(--muted); padding:60px 0; }
   .empty { text-align:center; color:var(--faint); font-size:13px; padding:18px; }
 </style>
 </head>
@@ -132,12 +138,11 @@
     <div class="avatar" id="avatar"></div>
   </div>
 
-  <div id="loading" class="loading">読み込み中…</div>
+  <div id="loading" class="ph page-loading"><span class="spin" style="width:28px;height:28px"></span></div>
 
-  <!-- ================= ホーム ================= -->
+  <!-- ================= 練習 ================= -->
   <section id="view-home" class="hidden">
-    <div id="status"></div>
-    <div id="hero"></div>
+    <div id="hero"><div class="hero ph"><span class="spin"></span></div></div>
     <div class="card tight">
       <div class="cal-head">
         <button onclick="moveMonth(-1)">‹</button>
@@ -145,27 +150,51 @@
         <button onclick="moveMonth(1)">›</button>
       </div>
       <div class="cal" id="cal"></div>
-      <div class="legend"><span><i style="background:var(--accent)"></i>参加予定</span><span><i style="background:var(--accent-soft)"></i>練習日</span><span><i style="background:#D1D5DB"></i>参加済み</span></div>
+      <div class="legend"><span><i style="background:var(--accent)"></i>参加</span><span><i style="background:var(--amber-soft)"></i>未定</span><span><i style="background:var(--accent-soft)"></i>練習日</span><span><i style="background:#D1D5DB"></i>参加済み</span></div>
     </div>
-    <div class="card tight" id="month-list"></div>
+    <div class="card tight" id="month-list"><div class="ph" style="min-height:120px"><span class="spin"></span></div></div>
   </section>
 
   <!-- ================= 支払い ================= -->
   <section id="view-pay" class="hidden">
     <div id="pay-status"></div>
-    <div class="card" style="display:flex;align-items:center;justify-content:space-between;gap:10px">
-      <div><div class="eyebrow">PayPay 送金先</div><div class="muted">タップでコピー</div></div>
-      <button class="copy" onclick="copyPayPay()"><span id="pp-id">—</span></button>
+
+    <div class="card tight">
+      <div class="eyebrow">練習に参加したときの支払い</div>
+      <div class="method">
+        <div class="ic" style="background:#FDE7E2">💸</div>
+        <div class="b">
+          <div class="t">PayPayで送る</div>
+          <div class="s">送るだけでOK。取引履歴から自動で反映されます（週1回）。登録は不要です。</div>
+          <div class="act"><button class="copy" onclick="copyPayPay()"><span id="pp-id">—</span></button><button class="link" onclick="openPayPay()">すぐ反映したい →</button></div>
+        </div>
+      </div>
+      <div class="method">
+        <div class="ic" style="background:#E7F6EC">👛</div>
+        <div class="b">
+          <div class="t">袋に現金を入れる</div>
+          <div class="s">入れたら必ずここで登録してください（現金は自動で分かりません）。</div>
+          <div class="act"><button class="btn sm dark" onclick="openCash()">袋に入れたと登録</button></div>
+        </div>
+      </div>
     </div>
-    <div class="eyebrow" style="margin:16px 4px 8px">支払いを登録</div>
-    <div class="tiles">
-      <button class="tile" onclick="openPayPay()"><div class="ic" style="background:#FDE7E2;color:#C2410C">💸</div><div class="t">PayPayで送った</div><div class="s">送金したら登録</div></button>
-      <button class="tile" onclick="openCash()"><div class="ic" style="background:#E7F6EC;color:#15803D">👛</div><div class="t">袋に現金を入れた</div><div class="s">練習で入れたら登録</div></button>
-      <button class="tile" onclick="openTransfer()"><div class="ic" style="background:#E8F0FE;color:#1D4ED8">🤝</div><div class="t">誰かの分も払った</div><div class="s">まとめて払った側</div></button>
-      <button class="tile" onclick="openClaim()"><div class="ic" style="background:#F3E8FF;color:#7E22CE">🙏</div><div class="t">払ってもらった</div><div class="s">払ってもらった側</div></button>
+
+    <div class="card tight">
+      <div class="eyebrow">まとめて払った・払ってもらった</div>
+      <div class="method">
+        <div class="ic" style="background:#E8F0FE">🤝</div>
+        <div class="b"><div class="t">誰かの分も一緒に払った</div><div class="s">自分の支払いから、その人の分を付け替えます。</div>
+          <div class="act"><button class="btn sm ghost" onclick="openTransfer()">登録する</button></div></div>
+      </div>
+      <div class="method">
+        <div class="ic" style="background:#F3E8FF">🙏</div>
+        <div class="b"><div class="t">誰かに払ってもらった</div><div class="s">どちらか一方が登録すればOKです。</div>
+          <div class="act"><button class="btn sm ghost" onclick="openClaim()">登録する</button></div></div>
+      </div>
     </div>
-    <div class="card tight" style="margin-top:16px"><div class="eyebrow" style="padding:14px 16px 0">支払いの記録</div><div id="hist-pay"></div></div>
-    <div class="card tight"><div class="eyebrow" style="padding:14px 16px 0">出席の記録</div><div id="hist-att"></div></div>
+
+    <div class="card tight"><div class="eyebrow">支払いの記録</div><div id="hist-pay"><div class="ph" style="min-height:100px"><span class="spin"></span></div></div></div>
+    <div class="card tight"><div class="eyebrow">出席の記録</div><div id="hist-att"><div class="ph" style="min-height:100px"><span class="spin"></span></div></div></div>
   </section>
 
   <!-- ================= 管理 ================= -->
@@ -176,24 +205,24 @@
       <label>場所</label><input type="text" id="np-place" placeholder="例：四谷スポーツスクエア">
       <label>参加費</label>
       <select id="np-price"><option value="500">500円</option><option value="300">300円</option></select>
-      <button class="btn dark" onclick="createPractice()">追加する</button>
+      <button class="btn dark" onclick="run(this, createPractice)">追加する</button>
     </div>
-    <div class="card tight"><div class="eyebrow" style="padding:14px 16px 0">出席の確定</div><div id="admin-practices"></div></div>
-    <div class="card tight"><div class="eyebrow" style="padding:14px 16px 0">未払い</div><div id="admin-unpaid"></div></div>
-    <div class="card tight"><div class="eyebrow" style="padding:14px 16px 0">残高プラス（前払い・立て替え・記録漏れ）</div><div id="admin-plus"></div></div>
-    <div class="card tight"><div class="eyebrow" style="padding:14px 16px 0">PayPay（取引履歴で未確認）</div><div id="admin-pending"></div></div>
-    <div class="card tight"><div class="eyebrow" style="padding:14px 16px 0">名寄せできていないPayPay入金</div><div class="muted" style="padding:0 16px 6px">スプレッドシートの unmatched で紐付け</div><div id="admin-unmatched"></div></div>
+    <div class="card tight"><div class="eyebrow">出席の確定</div><div id="admin-practices"><div class="ph" style="min-height:100px"><span class="spin"></span></div></div></div>
+    <div class="card tight"><div class="eyebrow">未払い</div><div id="admin-unpaid"><div class="ph" style="min-height:80px"><span class="spin"></span></div></div></div>
+    <div class="card tight"><div class="eyebrow">残高プラス（前払い・立て替え・記録漏れ）</div><div id="admin-plus"><div class="ph" style="min-height:80px"><span class="spin"></span></div></div></div>
+    <div class="card tight"><div class="eyebrow">PayPay（取引履歴で未確認）</div><div id="admin-pending"><div class="ph" style="min-height:80px"><span class="spin"></span></div></div></div>
+    <div class="card tight"><div class="eyebrow">名寄せできていないPayPay入金</div><div class="muted" style="padding:0 16px 6px">スプレッドシートの unmatched で紐付け</div><div id="admin-unmatched"><div class="ph" style="min-height:80px"><span class="spin"></span></div></div></div>
     <div class="card">
       <h2>袋の実額を記録</h2>
       <label>数えた金額</label><input type="number" id="cash-count" inputmode="numeric" placeholder="例: 4500">
-      <button class="btn dark" onclick="cashCount()">記録する</button>
+      <button class="btn dark" onclick="run(this, cashCount)">記録する</button>
     </div>
   </section>
 </main>
 
 <nav class="tabs" id="tabs">
   <button class="on" data-v="home" onclick="show('home')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="17" rx="3"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>練習</button>
-  <button data-v="pay" onclick="show('pay')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="13" rx="3"/><path d="M2 10h20M6 15h4"/></svg>支払い</button>
+  <button data-v="pay" onclick="show('pay')"><span class="dot hidden" id="pay-dot"></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="13" rx="3"/><path d="M2 10h20M6 15h4"/></svg>支払い</button>
   <button data-v="admin" id="tab-admin" class="hidden" onclick="show('admin')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>管理</button>
 </nav>
 
@@ -208,7 +237,8 @@ const API_URL = 'https://script.google.com/macros/s/AKfycbyOQXQTmaZ62VVdVWv7RviP
 // =======================
 
 const DOW = ['日','月','火','水','木','金','土'];
-let state = { me: null, isAdmin: false, unpaid: null, practices: [], paypayId: '', members: [], view: 'home' };
+const SPIN = '<div class="ph" style="min-height:100px"><span class="spin"></span></div>';
+let state = { me: null, isAdmin: false, unpaid: [], practices: [], paypayId: '', members: [], view: 'home' };
 let calCursor = new Date(); calCursor.setDate(1);
 
 async function api(action, params = {}) {
@@ -216,6 +246,17 @@ async function api(action, params = {}) {
   const data = await res.json();
   if (!data.ok) throw new Error(data.error || 'error');
   return data;
+}
+/** ボタンを押したらスピナーにして、処理が終わるまで二重押しを防ぐ */
+async function run(btn, fn) {
+  if (btn.dataset.busy) return;
+  btn.dataset.busy = '1';
+  const html = btn.innerHTML, w = btn.offsetWidth, h = btn.offsetHeight;
+  btn.style.minWidth = w + 'px'; btn.style.minHeight = h + 'px';
+  btn.innerHTML = '<span class="spin"></span>'; btn.disabled = true;
+  try { await fn(); }
+  catch (e) { toast('失敗: ' + e.message); }
+  finally { if (document.body.contains(btn)) { btn.innerHTML = html; btn.disabled = false; btn.style.minWidth = ''; btn.style.minHeight = ''; delete btn.dataset.busy; } }
 }
 function toast(msg) { const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2200); }
 function yen(n) { return Number(n).toLocaleString('ja-JP') + '円'; }
@@ -226,36 +267,45 @@ function ymd(d) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart
 function todayStr() { return ymd(new Date()); }
 function openModal(html) { document.getElementById('modal-body').innerHTML = html; document.getElementById('modal').classList.remove('hidden'); }
 function closeModal() { document.getElementById('modal').classList.add('hidden'); }
+function practiceById(id) { return state.practices.find(p => p.practice_id === id); }
 
 async function main() {
   try {
     await liff.init({ liffId: LIFF_ID });
     if (!liff.isLoggedIn()) { liff.login(); return; }
+    liff.getProfile().then(p => { if (p.pictureUrl) document.getElementById('avatar').innerHTML = `<img src="${p.pictureUrl}" alt="">`; }).catch(() => {});
     await loadMe();
     document.getElementById('loading').classList.add('hidden');
     show('home');
-  } catch (e) { document.getElementById('loading').textContent = 'エラー: ' + e.message; }
+  } catch (e) { document.getElementById('loading').innerHTML = '<div class="empty">エラー: ' + esc(e.message) + '</div>'; }
 }
 
 async function loadMe() {
   const d = await api('me');
-  state.me = d.me; state.isAdmin = d.isAdmin; state.unpaid = d.unpaid; state.practices = d.practices; state.paypayId = d.paypayId;
-  document.getElementById('avatar').textContent = (d.me.name || '?').trim().slice(0, 1);
+  state.me = d.me; state.isAdmin = d.isAdmin; state.unpaid = d.unpaid || []; state.practices = d.practices; state.paypayId = d.paypayId;
+  const av = document.getElementById('avatar'); if (!av.querySelector('img')) av.textContent = (d.me.name || '?').trim().slice(0, 1);
   document.getElementById('tab-admin').classList.toggle('hidden', !d.isAdmin);
   document.getElementById('pp-id').textContent = d.paypayId || '—';
+  document.getElementById('pay-dot').classList.toggle('hidden', !(state.unpaid.length && !d.me.exempt));
   renderHome();
   renderPayStatus();
 }
 
-// ---------- ホーム ----------
-function statusHtml(withGo) {
-  const u = state.unpaid;
-  if (state.me.exempt) return '';
-  if (!u || !u.dates.length) return `<div class="banner ok"><div class="ic">✓</div><div><div class="t">未払いはありません</div></div></div>`;
-  return `<div class="banner warn"><div class="ic">!</div><div><div class="t">未払いがあります</div><div class="s">${esc(u.dates.join('、'))} の分</div></div>${withGo ? `<button class="go" onclick="show('pay')">支払う ›</button>` : ''}</div>`;
+// ---------- 出欠 3択 ----------
+const ATT = { will_attend: { mk: '◯', lb: '参加', cls: 'on-yes' }, undecided: { mk: '△', lb: '未定', cls: 'on-maybe' }, absent: { mk: '×', lb: '欠席', cls: 'on-no' } };
+function seg3(pid, mine, after) {
+  return `<div class="seg">${Object.entries(ATT).map(([k, v]) => `<button class="${mine === k ? v.cls : ''}" onclick="run(this, () => attend('${pid}','${k}','${after || ''}'))"><span class="mk">${v.mk}</span><span class="lb">${v.lb}</span></button>`).join('')}</div>`;
 }
+async function attend(pid, status, after) {
+  await api('attend', { practice_id: pid, status });
+  toast(`${ATT[status].lb}で登録しました`);
+  await loadMe();
+  if (after === 'detail') openPractice(pid);
+}
+function countText(p) { return `参加 ${p.count_attend}人・未定 ${p.count_undecided}人`; }
+
+// ---------- 練習 ----------
 function renderHome() {
-  document.getElementById('status').innerHTML = statusHtml(true);
   const today = todayStr();
   const next = state.practices.filter(p => p.date >= today && p.status === 'scheduled').sort((a, b) => a.date.localeCompare(b.date))[0];
   document.getElementById('hero').innerHTML = next ? `
@@ -264,12 +314,9 @@ function renderHome() {
       <div class="eyebrow">次の練習</div>
       <div class="date">${fmtMD(next.date)}</div>
       <div class="place">${esc(next.place || '場所未定')}</div>
-      <div class="meta"><span>参加費 ${yen(next.price)}</span><span>参加予定 ${next.count}人</span></div>
-      <div class="seg">
-        <button class="${next.my_status === 'will_attend' ? 'on' : ''}" onclick="attend('${next.practice_id}','will_attend')">参加する</button>
-        <button class="${next.my_status === 'absent' ? 'on no' : ''}" onclick="attend('${next.practice_id}','absent')">不参加</button>
-      </div>
-    </div>` : `<div class="card"><div class="eyebrow">次の練習</div><div class="muted">まだ予定が入っていません</div></div>`;
+      <div class="meta"><span>${countText(next)}</span></div>
+      ${seg3(next.practice_id, next.my_status)}
+    </div>` : `<div class="hero" style="min-height:auto"><div class="eyebrow">次の練習</div><div class="place">まだ予定が入っていません</div></div>`;
   renderCalendar();
 }
 function moveMonth(n) { calCursor.setMonth(calCursor.getMonth() + n); renderCalendar(); }
@@ -282,111 +329,135 @@ function renderCalendar() {
   let html = DOW.map(d => `<div class="dow">${d}</div>`).join('');
   for (let i = 0; i < 42; i++) {
     const d = new Date(start); d.setDate(start.getDate() + i);
-    const key = ymd(d), p = byDate[key], out = d.getMonth() !== m;
-    const cls = ['d', out ? 'out' : '', key === today ? 'today' : '', p ? 'has' : '', p && p.my_status === 'will_attend' ? 'mine' : '', p && p.status === 'confirmed' ? 'done' : '', p && p.my_status === 'attended' ? 'mine' : ''].filter(Boolean).join(' ');
+    if (i >= 35 && d.getMonth() !== m) break;
+    const key = ymd(d), p = byDate[key];
+    const mine = p && (p.my_status === 'will_attend' || p.my_status === 'attended');
+    const cls = ['d', d.getMonth() !== m ? 'out' : '', key === today ? 'today' : '', p ? 'has' : '', mine ? 'mine' : '', p && p.my_status === 'undecided' ? 'maybe' : '', p && p.status === 'confirmed' ? 'done' : ''].filter(Boolean).join(' ');
     html += `<button class="${cls}" ${p ? `onclick="openPractice('${p.practice_id}')"` : 'disabled'}>${d.getDate()}</button>`;
-    if (i === 34 && new Date(start.getTime() + 35 * 864e5).getMonth() !== m) break;
   }
   document.getElementById('cal').innerHTML = html;
   const list = state.practices.filter(p => p.date.startsWith(`${y}-${String(m + 1).padStart(2, '0')}`)).sort((a, b) => a.date.localeCompare(b.date));
-  document.getElementById('month-list').innerHTML = `<div class="eyebrow" style="padding:14px 16px 4px">${m + 1}月の練習</div>` + (list.map(p => practiceRow(p)).join('') || '<div class="empty">この月の練習はありません</div>');
+  document.getElementById('month-list').innerHTML = `<div class="eyebrow">${m + 1}月の練習</div>` + (list.map(practiceRow).join('') || '<div class="empty">この月の練習はありません</div>');
 }
 function practiceRow(p) {
   const d = parseD(p.date);
   const st = p.status === 'confirmed' ? (p.my_status === 'attended' ? '<span class="pill">参加済み</span>' : '<span class="pill">終了</span>')
-    : p.my_status === 'will_attend' ? '<span class="pill acc">参加予定</span>' : p.my_status === 'absent' ? '<span class="pill">不参加</span>' : '<span class="pill info">未回答</span>';
+    : p.my_status === 'will_attend' ? '<span class="pill acc">◯ 参加</span>' : p.my_status === 'undecided' ? '<span class="pill amber">△ 未定</span>' : p.my_status === 'absent' ? '<span class="pill ink">× 欠席</span>' : '<span class="pill info">未回答</span>';
   return `<button class="row" onclick="openPractice('${p.practice_id}')">
     <div class="datebox"><b>${d.getDate()}</b><small>${DOW[d.getDay()]}</small></div>
-    <div class="l"><div class="t">${esc(p.place || '場所未定')}</div><div class="s">${yen(p.price)} ・ ${p.count}人</div></div>${st}<span class="chev">›</span></button>`;
-}
-async function attend(pid, status) {
-  try { await api('attend', { practice_id: pid, status }); toast(status === 'will_attend' ? '参加で登録しました' : '不参加で登録しました'); await loadMe(); }
-  catch (e) { toast('失敗: ' + e.message); }
+    <div class="l"><div class="t">${esc(p.place || '場所未定')}</div><div class="s">${countText(p)}</div></div>${st}<span class="chev">›</span></button>`;
 }
 
 // ---------- 練習の詳細 ----------
 async function openPractice(pid) {
-  openModal('<div class="loading">読み込み中…</div>');
+  openModal(SPIN);
   try {
     const d = await api('practice', { practice_id: pid });
-    const p = d.practice, mine = p.my_status;
-    const members = d.attendees.filter(a => a.type === 'member'), guests = d.attendees.filter(a => a.type === 'guest');
-    const canEdit = p.status === 'scheduled';
+    const p = d.practice;
+    const grp = s => d.attendees.filter(a => a.type === 'member' && a.status === s);
+    const yes = p.status === 'confirmed' ? d.attendees.filter(a => a.type === 'member' && a.status === 'attended') : grp('will_attend');
+    const maybe = p.status === 'confirmed' ? [] : grp('undecided');
+    const guests = d.attendees.filter(a => a.type === 'guest');
+    const names = arr => arr.map(a => `<div class="row"><div class="l"><div class="t">${esc(a.name)}</div></div></div>`).join('') || '<div class="empty">まだいません</div>';
     openModal(`
       <h3>${fmtMD(p.date)}</h3>
       <div class="muted">${esc(p.place || '場所未定')} ・ 参加費 ${yen(p.price)} ・ ${p.status === 'confirmed' ? '出席確定済み' : '予定'}</div>
-      ${canEdit ? `<div class="seg" style="margin-top:14px">
-        <button class="${mine === 'will_attend' ? 'on' : ''}" onclick="attendIn('${pid}','will_attend')">参加する</button>
-        <button class="${mine === 'absent' ? 'on no' : ''}" onclick="attendIn('${pid}','absent')">不参加</button></div>` : ''}
-      <div class="card tight" style="margin-top:14px"><div class="eyebrow" style="padding:12px 16px 0">${p.status === 'confirmed' ? '出席' : '参加予定'}（${members.length}人）</div>
-        ${members.map(a => `<div class="row"><div class="l"><div class="t">${esc(a.name)}</div></div></div>`).join('') || '<div class="empty">まだいません</div>'}</div>
-      <div class="card tight"><div class="eyebrow" style="padding:12px 16px 0">助っ人（${guests.length}人）</div>
+      ${p.status === 'scheduled' ? seg3(pid, p.my_status, 'detail') : ''}
+      <div class="card tight" style="margin-top:14px"><div class="eyebrow">${p.status === 'confirmed' ? '出席' : '◯ 参加'}（${yes.length}人）</div>${names(yes)}</div>
+      ${p.status === 'scheduled' ? `<div class="card tight"><div class="eyebrow">△ 未定（${maybe.length}人）</div>${names(maybe)}</div>` : ''}
+      <div class="card tight"><div class="eyebrow">助っ人（${guests.length}人）</div>
         ${guests.map(a => `<div class="row"><div class="l"><div class="t">${esc(a.name)}</div><div class="s">${esc(a.brought_by || '')} が登録</div></div>${a.paid ? '<span class="pill ok">支払い済み</span>' : '<span class="pill warn">未払い</span>'}</div>`).join('') || '<div class="empty">まだいません</div>'}
         <div style="padding:8px 16px 14px"><button class="btn ghost" style="margin:0" onclick="openGuest('${pid}')">助っ人を追加</button></div></div>
       ${state.isAdmin ? `<button class="btn dark" onclick="openConfirm('${pid}')">${p.status === 'confirmed' ? '出席を修正する' : '出席を確定する'}</button>` : ''}`);
   } catch (e) { openModal(`<div class="empty">読み込めませんでした: ${esc(e.message)}</div>`); }
 }
-async function attendIn(pid, status) { await attend(pid, status); openPractice(pid); }
 
 function openGuest(pid) {
-  openModal(`<h3>助っ人を追加</h3><div class="muted">${fmtMD(state.practices.find(p => p.practice_id === pid)?.date || '')}</div>
-    <label>名前</label><input type="text" id="g-name" placeholder="例：田中さん" autofocus>
-    <label>参加費はどうする？</label>
+  const p = practiceById(pid);
+  openModal(`<h3>助っ人を追加</h3><div class="muted">${p ? fmtMD(p.date) : ''}</div>
+    <label>名前</label><input type="text" id="g-name" placeholder="例：田中さん">
+    <label>参加費（${p ? yen(p.price) : ''}）はどうする？</label>
     <div class="opts" id="g-pay">
       <button class="opt on" data-v="cash"><div><div class="t">袋に現金を入れる</div><div class="s">練習で現金払い</div></div></button>
       <button class="opt" data-v="by_me"><div><div class="t">自分がまとめて払う</div><div class="s">あなたの支払いから付け替え</div></div></button>
       <button class="opt" data-v="paypay"><div><div class="t">PayPayで送ってもらう</div><div class="s">取引履歴で確認します</div></div></button>
       <button class="opt" data-v="later"><div><div class="t">あとで決める</div><div class="s">未払いとして記録</div></div></button>
     </div>
-    <button class="btn" onclick="submitGuest('${pid}')">登録する</button>`);
+    <button class="btn" onclick="run(this, () => submitGuest('${pid}'))">登録する</button>`);
   document.querySelectorAll('#g-pay .opt').forEach(b => b.onclick = () => { document.querySelectorAll('#g-pay .opt').forEach(x => x.classList.remove('on')); b.classList.add('on'); });
 }
 async function submitGuest(pid) {
   const name = document.getElementById('g-name').value.trim();
   const pay = document.querySelector('#g-pay .opt.on').dataset.v;
-  if (!name) return toast('名前を入れてください');
-  try { await api('guest', { name, practice_id: pid, payment: pay }); state.members = []; toast('登録しました'); await loadMe(); openPractice(pid); }
-  catch (e) { toast('失敗: ' + e.message); }
+  if (!name) { toast('名前を入れてください'); return; }
+  await api('guest', { name, practice_id: pid, payment: pay });
+  state.members = []; toast('登録しました'); await loadMe(); openPractice(pid);
 }
 
 async function openConfirm(pid) {
-  openModal('<div class="loading">読み込み中…</div>');
+  openModal(SPIN);
   const d = await api('practice', { practice_id: pid });
   if (!state.members.length) state.members = (await api('members')).members;
   const st = {}; d.attendees.forEach(a => { st[a.member_id] = a.status; });
   const guests = d.attendees.filter(a => a.type === 'guest');
-  const rowsM = state.members.map(m => `<label class="chk"><input type="checkbox" value="${m.member_id}" ${st[m.member_id] && st[m.member_id] !== 'absent' ? 'checked' : ''}><span>${esc(m.name)}</span></label>`).join('');
+  const on = s => s === 'will_attend' || s === 'attended';
+  const rowsM = state.members.map(m => `<label class="chk"><input type="checkbox" value="${m.member_id}" ${on(st[m.member_id]) ? 'checked' : ''}><span>${esc(m.name)}${st[m.member_id] === 'undecided' ? ' <span class="pill amber">△</span>' : ''}</span></label>`).join('');
   const rowsG = guests.map(g => `<label class="chk"><input type="checkbox" value="${g.member_id}" ${g.status !== 'absent' ? 'checked' : ''}><span>${esc(g.name)} <span class="pill">助っ人</span></span></label>`).join('');
   openModal(`<h3>出席を確定</h3><div class="muted">${fmtMD(d.practice.date)}。来た人にチェック。保存すると請求が確定します。</div>
     <div class="card tight" style="margin-top:12px;padding:0 16px"><div id="confirm-list">${rowsM}${rowsG}</div></div>
-    <button class="btn dark" onclick="submitConfirm('${pid}')">保存する</button>`);
+    <button class="btn dark" onclick="run(this, () => submitConfirm('${pid}'))">保存する</button>`);
 }
 async function submitConfirm(pid) {
   const attended = [...document.querySelectorAll('#confirm-list input:checked')].map(i => i.value);
-  try { await api('admin_confirm_practice', { practice_id: pid, attended }); closeModal(); toast(`${attended.length}人で確定しました`); await loadMe(); if (state.view === 'admin') await loadAdmin(); }
-  catch (e) { toast('失敗: ' + e.message); }
+  await api('admin_confirm_practice', { practice_id: pid, attended });
+  closeModal(); toast(`${attended.length}人で確定しました`); await loadMe(); if (state.view === 'admin') await loadAdmin();
 }
 
 // ---------- 支払い ----------
-function renderPayStatus() { document.getElementById('pay-status').innerHTML = statusHtml(false); }
+function renderPayStatus() {
+  const u = state.unpaid;
+  document.getElementById('pay-status').innerHTML = state.me.exempt ? '' :
+    !u.length ? `<div class="banner ok"><div class="ic">✓</div><div><div class="t">未払いはありません</div></div></div>` :
+    `<div class="banner warn"><div class="ic">!</div><div><div class="t">未払いがあります</div><div class="s">${esc(u.map(x => fmtMD(x.date)).join('、'))} の分</div></div></div>`;
+}
 function copyPayPay() {
   if (!state.paypayId) return;
   navigator.clipboard?.writeText(state.paypayId).then(() => toast('コピーしました')).catch(() => toast(state.paypayId));
 }
+/** 支払い対象の練習を選ぶセレクト。未払いの練習を先頭に、その後に直近で参加した練習 */
+function practiceSelect(id) {
+  const unpaidIds = new Set(state.unpaid.map(u => u.practice_id));
+  const mine = state.practices.filter(p => ['will_attend', 'attended'].includes(p.my_status) && p.date <= todayStr()).sort((a, b) => b.date.localeCompare(a.date));
+  const opts = [
+    ...state.unpaid.map(u => `<option value="${u.practice_id}" data-price="${u.price}">${fmtMD(u.date)}（未払い）</option>`),
+    ...mine.filter(p => !unpaidIds.has(p.practice_id)).slice(0, 6).map(p => `<option value="${p.practice_id}" data-price="${p.price}">${fmtMD(p.date)}</option>`),
+    `<option value="" data-price="">複数回分をまとめて・その他</option>`,
+  ].join('');
+  return `<select id="${id}" onchange="syncAmount('${id}')">${opts}</select>`;
+}
+function syncAmount(selId) {
+  const sel = document.getElementById(selId), price = sel.selectedOptions[0]?.dataset.price;
+  if (price) document.getElementById('m-amount').value = price;
+}
 function openPayPay() {
-  openModal(`<h3>PayPayで送った</h3><div class="muted">送金先 <b>${esc(state.paypayId)}</b>。送った金額を登録してください。取引履歴と自動で突き合わせます。</div>
-    <label>金額</label><input type="number" id="m-amount" inputmode="numeric" value="500">
-    <button class="btn" onclick="submitSimple('paypay','登録しました')">登録する</button>`);
+  openModal(`<h3>PayPayで送った</h3><div class="muted">送るだけでも週1回の取り込みで自動反映されます。登録すると、取り込みを待たずにすぐ反映されます。</div>
+    <label>どの練習の分？</label>${practiceSelect('m-pid')}
+    <label>送った金額</label><input type="number" id="m-amount" inputmode="numeric" value="500">
+    <button class="btn" onclick="run(this, () => submitSimple('paypay'))">登録する</button>`);
+  syncAmount('m-pid');
 }
 function openCash() {
-  openModal(`<h3>袋に現金を入れた</h3><div class="muted">入れた金額を登録してください。</div>
-    <label>金額</label><input type="number" id="m-amount" inputmode="numeric" value="500">
-    <button class="btn" onclick="submitSimple('cash','登録しました')">登録する</button>`);
+  openModal(`<h3>袋に現金を入れた</h3>
+    <label>どの練習の分？</label>${practiceSelect('m-pid')}
+    <label>入れた金額</label><input type="number" id="m-amount" inputmode="numeric" value="500">
+    <button class="btn" onclick="run(this, () => submitSimple('cash'))">登録する</button>`);
+  syncAmount('m-pid');
 }
-async function submitSimple(action, msg) {
+async function submitSimple(action) {
   const amount = Number(document.getElementById('m-amount').value);
-  if (!amount) return toast('金額を入れてください');
-  try { await api(action, { amount }); closeModal(); toast(msg); await loadMe(); await loadHistory(); } catch (e) { toast('失敗: ' + e.message); }
+  if (!amount) { toast('金額を入れてください'); return; }
+  await api(action, { amount, practice_id: document.getElementById('m-pid').value });
+  closeModal(); toast('登録しました'); await loadMe(); await loadHistory();
 }
 async function memberOptions(includeGuests) {
   if (!state.members.length) state.members = (await api('members')).members;
@@ -394,23 +465,27 @@ async function memberOptions(includeGuests) {
     .map(m => `<option value="${m.member_id}">${esc(m.name)}${m.type === 'guest' ? '（助っ人）' : ''}</option>`).join('');
 }
 async function openTransfer() {
+  openModal(SPIN);
   const opts = await memberOptions(true);
-  openModal(`<h3>誰かの分も払った</h3><div class="muted">あなたの支払いのうち、その人の分に付け替えます。</div>
+  openModal(`<h3>誰かの分も一緒に払った</h3><div class="muted">あなたの支払いのうち、その人の分を付け替えます。</div>
     <label>誰の分？</label><select id="m-target">${opts}</select>
-    <label>金額</label><input type="number" id="m-amount" inputmode="numeric" value="500">
-    <button class="btn" onclick="submitPair('transfer','target_member_id','m-target')">登録する</button>`);
+    <label>その人の分の金額（自分の分は含めない）</label><input type="number" id="m-amount" inputmode="numeric" value="500">
+    <div class="hint">例：2人分の1,000円を送ったなら、ここは 500 です。</div>
+    <button class="btn" onclick="run(this, () => submitPair('transfer','target_member_id','m-target'))">登録する</button>`);
 }
 async function openClaim() {
+  openModal(SPIN);
   const opts = await memberOptions(false);
-  openModal(`<h3>払ってもらった</h3><div class="muted">その人の支払いのうち、あなたの分に付け替えます。</div>
+  openModal(`<h3>誰かに払ってもらった</h3><div class="muted">その人の支払いのうち、あなたの分を付け替えます。</div>
     <label>誰に払ってもらった？</label><select id="m-payer">${opts}</select>
-    <label>金額</label><input type="number" id="m-amount" inputmode="numeric" value="500">
-    <button class="btn" onclick="submitPair('claim','payer_member_id','m-payer')">登録する</button>`);
+    <label>自分の分の金額</label><input type="number" id="m-amount" inputmode="numeric" value="500">
+    <button class="btn" onclick="run(this, () => submitPair('claim','payer_member_id','m-payer'))">登録する</button>`);
 }
 async function submitPair(action, key, selId) {
   const amount = Number(document.getElementById('m-amount').value), who = document.getElementById(selId).value;
-  if (!amount || !who) return toast('入力してください');
-  try { await api(action, { [key]: who, amount }); closeModal(); toast('登録しました'); await loadMe(); await loadHistory(); } catch (e) { toast('失敗: ' + e.message); }
+  if (!amount || !who) { toast('入力してください'); return; }
+  await api(action, { [key]: who, amount });
+  closeModal(); toast('登録しました'); await loadMe(); await loadHistory();
 }
 async function loadHistory() {
   const d = await api('history');
@@ -432,19 +507,19 @@ async function loadAdmin() {
   const today = todayStr();
   const ps = state.practices.filter(p => p.date <= today || p.status === 'scheduled').sort((a, b) => b.date.localeCompare(a.date)).slice(0, 10);
   document.getElementById('admin-practices').innerHTML = ps.map(p => `
-    <div class="row"><div class="l"><div class="t">${fmtMD(p.date)}</div><div class="s">${esc(p.place || '')} ・ ${p.count}人</div></div>
+    <div class="row"><div class="l"><div class="t">${fmtMD(p.date)}</div><div class="s">${esc(p.place || '')} ・ ${countText(p)}</div></div>
     <button class="btn sm ${p.status === 'confirmed' ? 'ghost' : 'dark'}" onclick="openConfirm('${p.practice_id}')">${p.status === 'confirmed' ? '修正' : '確定'}</button></div>`).join('') || '<div class="empty">練習がありません</div>';
 }
 async function createPractice() {
   const date = document.getElementById('np-date').value;
-  if (!date) return toast('日付を選んでください');
-  try { await api('admin_create_practice', { date, place: document.getElementById('np-place').value, price: document.getElementById('np-price').value }); toast('追加しました'); document.getElementById('np-date').value = ''; await loadMe(); await loadAdmin(); }
-  catch (e) { toast('失敗: ' + e.message); }
+  if (!date) { toast('日付を選んでください'); return; }
+  await api('admin_create_practice', { date, place: document.getElementById('np-place').value, price: document.getElementById('np-price').value });
+  toast('追加しました'); document.getElementById('np-date').value = ''; await loadMe(); await loadAdmin();
 }
 async function cashCount() {
   const amount = Number(document.getElementById('cash-count').value);
-  if (!amount) return toast('金額を入れてください');
-  try { await api('admin_cash_count', { amount }); toast('記録しました'); document.getElementById('cash-count').value = ''; } catch (e) { toast('失敗: ' + e.message); }
+  if (!amount) { toast('金額を入れてください'); return; }
+  await api('admin_cash_count', { amount }); toast('記録しました'); document.getElementById('cash-count').value = '';
 }
 
 // ---------- タブ ----------
