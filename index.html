@@ -107,6 +107,8 @@
   input:not([type=checkbox]), select { display:block; width:100%; min-width:0; max-width:100%; padding:12px; font-size:16px; border:1px solid var(--line); border-radius:var(--r-sm); background:#fff; -webkit-appearance:none; appearance:none; }
   input[type=date], input[type=time] { min-height:48px; }
   .fields { display:flex; gap:12px; } .fields > div { flex:1; min-width:0; }
+  .np-row { border:1px solid var(--line); border-radius:var(--r-sm); padding:4px 12px 12px; margin-top:12px; position:relative; }
+  .np-row .rm { position:absolute; top:8px; right:8px; background:none; border:none; color:var(--faint); font-size:18px; padding:4px 8px; }
   .sticky-count { position:sticky; top:0; z-index:2; background:var(--bg); padding:10px 0; margin:0 -16px; padding-left:16px; padding-right:16px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--line); }
   .sticky-count b { font-size:20px; }
   .opts { display:grid; gap:8px; }
@@ -219,12 +221,10 @@
   <section id="view-admin" class="hidden">
     <div class="card">
       <h2>練習日を追加</h2>
-      <label>日付</label><input type="date" id="np-date">
-      <div class="fields"><div><label>開始</label><input type="time" id="np-start" value="19:00"></div><div><label>終了</label><input type="time" id="np-end" value="22:00"></div></div>
-      <label>場所</label><input type="text" id="np-place" value="四谷スポーツスクエア">
-      <label>参加費</label>
-      <select id="np-price"><option value="500">500円</option><option value="300">300円</option></select>
-      <button class="btn dark" onclick="run(this, createPractice)">追加する</button>
+      <div class="muted">複数日をまとめて追加できます。グループへの通知は1回にまとまります。</div>
+      <div id="np-rows"></div>
+      <button class="btn ghost" onclick="addPracticeRow()">＋ 日程を追加</button>
+      <button class="btn dark" onclick="run(this, createPractices)">まとめて登録する</button>
     </div>
     <div class="card tight"><div class="eyebrow">出席の確定</div><div id="admin-practices"><div class="ph" style="min-height:100px"><span class="spin"></span></div></div></div>
     <div class="card tight admin-only"><div class="eyebrow">未払い</div><div id="admin-unpaid"><div class="ph" style="min-height:80px"><span class="spin"></span></div></div></div>
@@ -659,11 +659,38 @@ async function deletePractice(pid) {
   await api('admin_delete_practice', { practice_id: pid });
   closeModal(); toast('削除しました'); await loadMe(); if (state.view === 'admin') renderAdminPractices();
 }
-async function createPractice() {
-  const date = document.getElementById('np-date').value;
-  if (!date) { toast('日付を選んでください'); return; }
-  await api('admin_create_practice', { date, place: document.getElementById('np-place').value, price: document.getElementById('np-price').value, start: document.getElementById('np-start').value, end: document.getElementById('np-end').value });
-  toast('追加しました'); document.getElementById('np-date').value = ''; await loadMe(); renderAdminPractices();
+let npSeq = 0;
+function addPracticeRow(preset) {
+  const id = ++npSeq;
+  const last = document.querySelector('#np-rows .np-row:last-child');
+  const v = k => last ? last.querySelector(`[data-k=${k}]`).value : null;
+  const d = preset || { date: '', start: v('start') || '19:00', end: v('end') || '22:00', place: v('place') || '四谷スポーツスクエア', price: v('price') || '500' };
+  const el = document.createElement('div');
+  el.className = 'np-row'; el.id = 'np-' + id;
+  el.innerHTML = `<button class="rm" onclick="removePracticeRow(${id})" aria-label="削除">×</button>
+    <label>日付</label><input type="date" data-k="date" value="${d.date}">
+    <div class="fields"><div><label>開始</label><input type="time" data-k="start" value="${d.start}"></div><div><label>終了</label><input type="time" data-k="end" value="${d.end}"></div></div>
+    <label>場所</label><input type="text" data-k="place" value="${esc(d.place)}">
+    <label>参加費</label><select data-k="price"><option value="500" ${d.price == 500 ? 'selected' : ''}>500円</option><option value="300" ${d.price == 300 ? 'selected' : ''}>300円</option></select>`;
+  document.getElementById('np-rows').appendChild(el);
+}
+function removePracticeRow(id) {
+  const rows = document.querySelectorAll('#np-rows .np-row');
+  if (rows.length <= 1) { toast('最低1件は必要です'); return; }
+  document.getElementById('np-' + id).remove();
+}
+function resetPracticeRows() { document.getElementById('np-rows').innerHTML = ''; addPracticeRow(); }
+async function createPractices() {
+  const items = [...document.querySelectorAll('#np-rows .np-row')].map(r => {
+    const g = k => r.querySelector(`[data-k=${k}]`).value;
+    return { date: g('date'), start: g('start'), end: g('end'), place: g('place'), price: g('price') };
+  });
+  if (items.some(it => !it.date)) { toast('日付が入っていない行があります'); return; }
+  const dup = new Set(); if (items.some(it => dup.size === dup.add(it.date).size)) { toast('同じ日付が重複しています'); return; }
+  const exists = items.filter(it => state.practices.some(p => p.date === it.date));
+  if (exists.length && !confirm(`${exists.map(it => fmtMD(it.date)).join('、')} はすでに練習があります。追加しますか？`)) return;
+  const r = await api('admin_create_practices', { items });
+  toast(`${r.practices.length}件追加しました`); resetPracticeRows(); await loadMe(); renderAdminPractices();
 }
 async function cashCount() {
   const amount = Number(document.getElementById('cash-count').value);
@@ -678,6 +705,7 @@ async function show(v) {
   ['home', 'pay', 'admin'].forEach(k => document.getElementById('view-' + k).classList.toggle('hidden', k !== v));
   document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.v === v));
   window.scrollTo(0, 0);
+  if (v === 'admin' && !document.querySelector('#np-rows .np-row')) addPracticeRow();
   try { if (v === 'pay') await loadHistory(); if (v === 'admin') await loadAdmin(); } catch (e) { toast('読み込み失敗: ' + e.message); }
 }
 main();
