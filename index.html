@@ -639,7 +639,7 @@ async function openSend(kind, opts = {}) {
   if (!text) { openModal('<div class="empty">送る内容がありません（未払いがない、など）</div>'); return; }
   const inGroup = (() => { try { return liff.getContext()?.type === 'group' || liff.getContext()?.type === 'room'; } catch (e) { return false; } })();
   openModal(`<h3>${SEND_TITLES[kind] || 'お知らせ'}を送る</h3>
-    <div class="muted">${inGroup ? 'このトークに、あなたの発言として送ります。' : '送信先を選ぶ画面が開きます。サークルのグループを選ぶと、あなたの発言として送られます。'}文面は直せます。</div>
+    <div class="muted">${inGroup ? 'このトークに、あなたの発言として送ります。' : '送信先を選ぶ画面が開きます。上の「グループ」タブからサークルのグループを選んでください。あなたの発言として送られます。'}文面は直せます。</div>
     <label>文面</label><textarea id="send-text">${esc(text)}</textarea>
     <button class="btn" onclick="run(this, () => doSend('${kind}', '${opts.practice_id || ''}'))">${inGroup ? 'このトークに送る' : 'グループに送る'}</button>
     <button class="btn ghost" onclick="run(this, copySendText)">文面をコピーする</button>`);
@@ -693,7 +693,7 @@ async function doSend(kind, pid) {
   if (ctxType === 'group' || ctxType === 'room') {
     await liff.sendMessages(msg);
   } else if (liff.isApiAvailable && liff.isApiAvailable('shareTargetPicker')) {
-    const r = await liff.shareTargetPicker(msg, { isMultiple: false });
+    const r = await liff.shareTargetPicker(msg, { isMultiple: true });
     if (!r) { toast('送信をキャンセルしました'); return; }
   } else {
     await navigator.clipboard.writeText(text).catch(() => {});
