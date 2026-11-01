@@ -8,7 +8,7 @@
 <style>
   :root {
     --bg:#F6F7F9; --card:#FFFFFF; --ink:#111827; --muted:#6B7280; --faint:#9CA3AF; --line:#E5E7EB;
-    --accent:#F4511E; --accent-soft:#FFEDE6; --amber:#F59E0B; --amber-soft:#FEF3C7;
+    --accent:#F4511E; --accent-soft:#FFEDE6; --accent-ink:#9A3412; --season-band:linear-gradient(#FFEDE6, #F6F7F9); --amber:#F59E0B; --amber-soft:#FEF3C7;
     --ok:#16A34A; --ok-soft:#E7F6EC; --warn:#DC2626; --warn-soft:#FDECEC; --info:#2563EB; --info-soft:#E8F0FE;
     --r:16px; --r-sm:12px;
   }
@@ -69,15 +69,18 @@
   .cal-head button { border:none; background:var(--bg); width:32px; height:32px; border-radius:50%; font-size:16px; }
   .cal { display:grid; grid-template-columns:repeat(7,1fr); padding:0 10px 12px; min-height:300px; }
   .cal .dow { text-align:center; font-size:11px; color:var(--faint); padding:6px 0; font-weight:600; }
-  .cal .d { aspect-ratio:1; display:flex; align-items:center; justify-content:center; border:none; background:none; border-radius:50%; font-size:14px; margin:2px; }
+  .cal .d { width:34px; height:34px; margin:4px auto; display:flex; align-items:center; justify-content:center; border:none; background:none; border-radius:50%; font-size:14px; padding:0; }
   .cal .d.out { color:var(--line); }
-  .cal .d.today { font-weight:800; color:var(--accent); }
-  .cal .d.has { background:var(--accent-soft); color:#9A3412; font-weight:700; }
+  .cal .d.today { font-weight:800; color:var(--accent); box-shadow:inset 0 0 0 1.5px var(--accent); }
+  .cal .d.has { background:var(--accent-soft); color:var(--accent-ink); font-weight:700; }
   .cal .d.has.mine { background:var(--accent); color:#fff; }
   .cal .d.has.maybe { background:var(--amber-soft); color:#92400E; }
-  .cal .d.has.done { background:var(--bg); color:var(--muted); }
-  .cal .d.has.done.mine { background:#D1D5DB; color:#111827; }
-  .legend { display:flex; flex-wrap:wrap; gap:12px; padding:0 16px 14px; font-size:12px; color:var(--muted); }
+  .cal .d.has.no { background:#DBEAFE; color:#1D4ED8; }
+  .cal .d.has.done { background:#E5E7EB; color:#6B7280; }
+  .legend { display:flex; flex-wrap:wrap; gap:12px; padding:0 16px 12px; font-size:12px; color:var(--muted); }
+  .season-band { position:absolute; left:0; right:0; top:0; height:150px; background:var(--season-band); z-index:-1; }
+  body { position:relative; }
+  .brand .mark { font-size:18px; margin-left:6px; }
   .legend i { display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:5px; vertical-align:-1px; }
 
   .row { display:flex; align-items:center; gap:12px; padding:12px 16px; border-top:1px solid var(--line); background:none; border-left:none; border-right:none; border-bottom:none; width:100%; text-align:left; }
@@ -132,9 +135,10 @@
 </style>
 </head>
 <body>
+<div class="season-band"></div>
 <main>
   <div class="top">
-    <div class="brand">Angri<span>ff</span></div>
+    <div class="brand">Angri<span>ff</span><span class="mark" id="season-mark"></span></div>
     <div class="avatar" id="avatar"></div>
   </div>
 
@@ -150,8 +154,8 @@
         <button onclick="moveMonth(1)">›</button>
       </div>
       <div class="cal" id="cal"></div>
-      <div style="padding:0 16px 14px"><button class="btn ghost" style="margin:0" onclick="openBulk()">この月の出欠をまとめて回答</button></div>
-      <div class="legend"><span><i style="background:var(--accent)"></i>参加</span><span><i style="background:var(--amber-soft)"></i>未定</span><span><i style="background:var(--accent-soft)"></i>練習日</span><span><i style="background:#D1D5DB"></i>参加済み</span></div>
+      <div class="legend"><span><i style="background:var(--accent)"></i>参加</span><span><i style="background:var(--amber-soft)"></i>未定</span><span><i style="background:#DBEAFE"></i>欠席</span><span><i style="background:var(--accent-soft)"></i>練習日</span><span><i style="background:#E5E7EB"></i>開催済み</span></div>
+      <div style="padding:0 16px 16px"><button class="btn" style="margin:0" onclick="openBulk()">出欠をまとめて回答</button></div>
     </div>
     <div class="card tight" id="month-list"><div class="ph" style="min-height:120px"><span class="spin"></span></div></div>
   </section>
@@ -165,17 +169,17 @@
       <div class="method">
         <div class="ic" style="background:#FDE7E2">💸</div>
         <div class="b">
-          <div class="t">PayPayで送る</div>
-          <div class="s">送るだけでOK。取引履歴から自動で反映されます（週1回）。登録は不要です。</div>
-          <div class="act"><button class="copy" onclick="copyPayPay()"><span id="pp-id">—</span></button><button class="link" onclick="openPayPay()">すぐ反映したい →</button></div>
+          <div class="t">PayPayで払う</div>
+          <div class="s"><b style="color:var(--ink)">PayPayで払った場合は登録不要です。</b>送金先に送るだけでOK。</div>
+          <div class="act"><button class="copy" onclick="copyPayPay()"><span id="pp-id">—</span></button><span class="muted" style="align-self:center">タップでコピー</span></div>
         </div>
       </div>
       <div class="method">
         <div class="ic" style="background:#E7F6EC">👛</div>
         <div class="b">
-          <div class="t">袋に現金を入れる</div>
-          <div class="s">入れたら必ずここで登録してください（現金は自動で分かりません）。</div>
-          <div class="act"><button class="btn sm dark" onclick="openCash()">袋に入れたと登録</button></div>
+          <div class="t">現金で払う</div>
+          <div class="s">袋に入れたら、ここで登録してください（現金は自動で分かりません）。</div>
+          <div class="act"><button class="btn sm dark" onclick="openCash('now')">現金で払ったと登録</button></div>
         </div>
       </div>
     </div>
@@ -184,13 +188,27 @@
       <div class="eyebrow">まとめて払った・払ってもらった</div>
       <div class="method">
         <div class="ic" style="background:#E8F0FE">🤝</div>
-        <div class="b"><div class="t">誰かの分も一緒に払った</div><div class="s">自分の支払いから、その人の分を付け替えます。</div>
+        <div class="b"><div class="t">誰かの分も一緒に払った</div><div class="s">例：2人分の1,000円をまとめて送った → 相手の分500円を登録</div>
           <div class="act"><button class="btn sm ghost" onclick="openTransfer()">登録する</button></div></div>
       </div>
       <div class="method">
         <div class="ic" style="background:#F3E8FF">🙏</div>
-        <div class="b"><div class="t">誰かに払ってもらった</div><div class="s">どちらか一方が登録すればOKです。</div>
+        <div class="b"><div class="t">誰かに払ってもらった</div><div class="s">払った側・払ってもらった側のどちらか一方が登録すればOK。</div>
           <div class="act"><button class="btn sm ghost" onclick="openClaim()">登録する</button></div></div>
+      </div>
+    </div>
+
+    <div class="card tight">
+      <div class="eyebrow">払い忘れの支払い</div>
+      <div class="method">
+        <div class="ic" style="background:#FDE7E2">💸</div>
+        <div class="b"><div class="t">PayPayで払った</div><div class="s">あとから送った場合は、ここで登録すると未払いがすぐ消えます。</div>
+          <div class="act"><button class="btn sm ghost" onclick="openPayPay('late')">登録する</button></div></div>
+      </div>
+      <div class="method">
+        <div class="ic" style="background:#E7F6EC">👛</div>
+        <div class="b"><div class="t">現金で払った</div><div class="s">次の練習で袋に入れたら登録してください。</div>
+          <div class="act"><button class="btn sm ghost" onclick="openCash('late')">登録する</button></div></div>
       </div>
     </div>
 
@@ -238,6 +256,22 @@ const API_URL = 'https://script.google.com/macros/s/AKfycbyOQXQTmaZ62VVdVWv7RviP
 // =======================
 
 const DOW = ['日','月','火','水','木','金','土'];
+const SEASONS = {
+  spring: { accent:'#EC4899', soft:'#FCE7F3', ink:'#9D174D', mark:'🌸' },
+  summer: { accent:'#0D9488', soft:'#CCFBF1', ink:'#115E59', mark:'🌻' },
+  autumn: { accent:'#F4511E', soft:'#FFEDE6', ink:'#9A3412', mark:'🍁' },
+  winter: { accent:'#0891B2', soft:'#E0F2FE', ink:'#155E75', mark:'⛄' },
+};
+function applySeason() {
+  const m = new Date().getMonth() + 1;
+  const s = SEASONS[m >= 3 && m <= 5 ? 'spring' : m >= 6 && m <= 8 ? 'summer' : m >= 9 && m <= 11 ? 'autumn' : 'winter'];
+  const r = document.documentElement.style;
+  r.setProperty('--accent', s.accent); r.setProperty('--accent-soft', s.soft); r.setProperty('--accent-ink', s.ink);
+  r.setProperty('--season-band', `linear-gradient(${s.soft}, #F6F7F9)`);
+  document.getElementById('season-mark').textContent = s.mark;
+  document.querySelector('meta[name=theme-color]').setAttribute('content', s.soft);
+}
+applySeason();
 const SPIN = '<div class="ph" style="min-height:100px"><span class="spin"></span></div>';
 let state = { me: null, isAdmin: false, unpaid: [], practices: [], paypayId: '', members: [], view: 'home' };
 let calCursor = new Date(); calCursor.setDate(1);
@@ -339,7 +373,9 @@ function renderCalendar() {
     if (i >= 35 && d.getMonth() !== m) break;
     const key = ymd(d), p = byDate[key];
     const mine = p && (p.my_status === 'will_attend' || p.my_status === 'attended');
-    const cls = ['d', d.getMonth() !== m ? 'out' : '', key === today ? 'today' : '', p ? 'has' : '', mine ? 'mine' : '', p && p.my_status === 'undecided' ? 'maybe' : '', p && p.status === 'confirmed' ? 'done' : ''].filter(Boolean).join(' ');
+    const done = p && p.status === 'confirmed';
+    const cls = ['d', d.getMonth() !== m ? 'out' : '', key === today ? 'today' : '', p ? 'has' : '',
+      done ? 'done' : mine ? 'mine' : p && p.my_status === 'undecided' ? 'maybe' : p && p.my_status === 'absent' ? 'no' : ''].filter(Boolean).join(' ');
     html += `<button class="${cls}" ${p ? `onclick="openPractice('${p.practice_id}')"` : 'disabled'}>${d.getDate()}</button>`;
   }
   document.getElementById('cal').innerHTML = html;
@@ -348,38 +384,40 @@ function renderCalendar() {
 }
 function practiceRow(p) {
   const d = parseD(p.date);
-  const st = p.status === 'confirmed' ? (p.my_status === 'attended' ? '<span class="pill">参加済み</span>' : '<span class="pill">終了</span>')
+  const st = p.status === 'confirmed' ? (p.my_status === 'attended' ? '<span class="pill">参加した</span>' : '<span class="pill">開催済み</span>')
     : p.my_status === 'will_attend' ? '<span class="pill acc">◯ 参加</span>' : p.my_status === 'undecided' ? '<span class="pill amber">△ 未定</span>' : p.my_status === 'absent' ? '<span class="pill ink">× 欠席</span>' : '<span class="pill info">未回答</span>';
   return `<button class="row" onclick="openPractice('${p.practice_id}')">
     <div class="datebox"><b>${d.getDate()}</b><small>${DOW[d.getDay()]}</small></div>
     <div class="l"><div class="t">${esc(p.place || '場所未定')}</div><div class="s">${countText(p)}</div></div>${st}<span class="chev">›</span></button>`;
 }
 
-// ---------- 月まとめて回答 ----------
+// ---------- 出欠をまとめて回答 ----------
+let bulkDraft = {};
 function openBulk() {
   const y = calCursor.getFullYear(), m = calCursor.getMonth();
   const list = state.practices.filter(p => p.status === 'scheduled' && p.date >= todayStr() && p.date.startsWith(`${y}-${String(m + 1).padStart(2, '0')}`)).sort((a, b) => a.date.localeCompare(b.date));
-  openModal(`<h3>${m + 1}月の出欠</h3><div class="muted">タップするとすぐ保存されます</div>
+  bulkDraft = {}; list.forEach(p => { bulkDraft[p.practice_id] = p.my_status; });
+  openModal(`<h3>${m + 1}月の出欠</h3><div class="muted">選んでから「保存する」を押してください</div>
     <div id="bulk-list" style="margin-top:8px">${list.map(bulkRow).join('') || '<div class="empty">この月に回答できる練習はありません</div>'}</div>
-    <button class="btn dark" onclick="closeModal()">閉じる</button>`);
+    ${list.length ? `<button class="btn" onclick="run(this, saveBulk)">保存する</button>` : ''}
+    <button class="btn ghost" onclick="closeModal()">閉じる</button>`);
 }
 function bulkRow(p) {
+  const cur = bulkDraft[p.practice_id];
   return `<div class="card" id="bulk-${p.practice_id}" style="margin:8px 0;padding:12px 14px">
     <div style="display:flex;align-items:center;justify-content:space-between"><div><b>${fmtMD(p.date)}</b><div class="muted">📍 ${esc(p.place || '場所未定')}</div></div><span class="muted">${countText(p)}</span></div>
-    <div class="seg" style="margin-top:10px">${Object.entries(ATT).map(([k, v]) => `<button class="${p.my_status === k ? v.cls : ''}" onclick="run(this, () => bulkAttend('${p.practice_id}','${k}'))"><span class="mk">${v.mk}</span><span class="lb">${v.lb}</span></button>`).join('')}</div>
+    <div class="seg" style="margin-top:10px">${Object.entries(ATT).map(([k, v]) => `<button class="${cur === k ? v.cls : ''}" onclick="pickBulk('${p.practice_id}','${k}')"><span class="mk">${v.mk}</span><span class="lb">${v.lb}</span></button>`).join('')}</div>
   </div>`;
 }
-async function bulkAttend(pid, status) {
-  await api('attend', { practice_id: pid, status });
-  const p = practiceById(pid);
-  if (p) {
-    const was = p.my_status;
-    if (was === 'will_attend') p.count_attend--; if (was === 'undecided') p.count_undecided--;
-    if (status === 'will_attend') p.count_attend++; if (status === 'undecided') p.count_undecided++;
-    p.my_status = status;
-    document.getElementById('bulk-' + pid).outerHTML = bulkRow(p);
-  }
-  renderHome();
+function pickBulk(pid, status) {
+  bulkDraft[pid] = status;
+  document.getElementById('bulk-' + pid).outerHTML = bulkRow(practiceById(pid));
+}
+async function saveBulk() {
+  const items = Object.entries(bulkDraft).filter(([pid, st]) => st && st !== (practiceById(pid) || {}).my_status).map(([practice_id, status]) => ({ practice_id, status }));
+  if (!items.length) { toast('変更はありません'); closeModal(); return; }
+  await api('attend_bulk', { items });
+  closeModal(); toast(`${items.length}件の出欠を保存しました`); await loadMe();
 }
 
 // ---------- 練習の詳細 ----------
@@ -461,31 +499,38 @@ function copyPayPay() {
   if (!state.paypayId) return;
   navigator.clipboard?.writeText(state.paypayId).then(() => toast('コピーしました')).catch(() => toast(state.paypayId));
 }
-/** 支払い対象の練習を選ぶセレクト。未払いの練習を先頭に、その後に直近で参加した練習 */
-function practiceSelect(id) {
-  const unpaidIds = new Set(state.unpaid.map(u => u.practice_id));
-  const mine = state.practices.filter(p => ['will_attend', 'attended'].includes(p.my_status) && p.date <= todayStr()).sort((a, b) => b.date.localeCompare(a.date));
-  const opts = [
-    ...state.unpaid.map(u => `<option value="${u.practice_id}" data-price="${u.price}">${fmtMD(u.date)}（未払い）</option>`),
-    ...mine.filter(p => !unpaidIds.has(p.practice_id)).slice(0, 6).map(p => `<option value="${p.practice_id}" data-price="${p.price}">${fmtMD(p.date)}</option>`),
-    `<option value="" data-price="">複数回分をまとめて・その他</option>`,
-  ].join('');
-  return `<select id="${id}" onchange="syncAmount('${id}')">${opts}</select>`;
+/**
+ * 支払い対象の練習を選ぶセレクト。
+ *  mode 'now'  : 直近の練習（今日±7日）を先頭に。練習当日に使う想定
+ *  mode 'late' : 未払いの練習を先頭に。払い忘れ用
+ */
+function practiceSelect(id, mode) {
+  const today = todayStr();
+  const near = state.practices.filter(p => Math.abs((parseD(p.date) - parseD(today)) / 864e5) <= 7).sort((a, b) => Math.abs(parseD(a.date) - parseD(today)) - Math.abs(parseD(b.date) - parseD(today)));
+  const unpaid = state.unpaid.map(u => ({ practice_id: u.practice_id, date: u.date, price: u.price, tag: '未払い' }));
+  const past = state.practices.filter(p => p.date <= today).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 8);
+  const order = mode === 'late' ? [...unpaid, ...past] : [...near, ...unpaid, ...past];
+  const seen = new Set(), opts = [];
+  order.forEach(p => { if (seen.has(p.practice_id)) return; seen.add(p.practice_id);
+    const tag = p.tag || (state.unpaid.some(u => u.practice_id === p.practice_id) ? '未払い' : '');
+    opts.push(`<option value="${p.practice_id}" data-price="${p.price}">${fmtMD(p.date)}${tag ? `（${tag}）` : ''}</option>`); });
+  opts.push(`<option value="" data-price="">複数回分をまとめて・その他</option>`);
+  return `<select id="${id}" onchange="syncAmount('${id}')">${opts.join('')}</select>`;
 }
 function syncAmount(selId) {
   const sel = document.getElementById(selId), price = sel.selectedOptions[0]?.dataset.price;
   if (price) document.getElementById('m-amount').value = price;
 }
-function openPayPay() {
-  openModal(`<h3>PayPayで送った</h3><div class="muted">送るだけでも週1回の取り込みで自動反映されます。登録すると、取り込みを待たずにすぐ反映されます。</div>
-    <label>どの練習の分？</label>${practiceSelect('m-pid')}
+function openPayPay(mode) {
+  openModal(`<h3>PayPayで払った</h3><div class="muted">払い忘れていた分を送ったら登録してください。取引履歴とも自動で突き合わせます。</div>
+    <label>どの練習の分？</label>${practiceSelect('m-pid', mode)}
     <label>送った金額</label><input type="number" id="m-amount" inputmode="numeric" value="500">
     <button class="btn" onclick="run(this, () => submitSimple('paypay'))">登録する</button>`);
   syncAmount('m-pid');
 }
-function openCash() {
-  openModal(`<h3>袋に現金を入れた</h3>
-    <label>どの練習の分？</label>${practiceSelect('m-pid')}
+function openCash(mode) {
+  openModal(`<h3>現金で払った</h3><div class="muted">袋に入れた金額を登録してください。</div>
+    <label>どの練習の分？</label>${practiceSelect('m-pid', mode)}
     <label>入れた金額</label><input type="number" id="m-amount" inputmode="numeric" value="500">
     <button class="btn" onclick="run(this, () => submitSimple('cash'))">登録する</button>`);
   syncAmount('m-pid');
@@ -504,31 +549,35 @@ async function memberOptions(includeGuests) {
 async function openTransfer() {
   openModal(SPIN);
   const opts = await memberOptions(true);
-  openModal(`<h3>誰かの分も一緒に払った</h3><div class="muted">あなたの支払いのうち、その人の分を付け替えます。</div>
-    <label>誰の分？</label><select id="m-target">${opts}</select>
-    <label>その人の分の金額（自分の分は含めない）</label><input type="number" id="m-amount" inputmode="numeric" value="500">
-    <div class="hint">例：2人分の1,000円を送ったなら、ここは 500 です。</div>
+  openModal(`<h3>誰かの分も一緒に払った</h3><div class="muted">自分の分とは別に、他の人の分も払ったときに登録します。</div>
+    <label>誰の分を払った？</label><select id="m-target">${opts}</select>
+    <label>どの練習の分？</label>${practiceSelect('m-pid', 'now')}
+    <label>その人の分の金額だけ（自分の分は含めない）</label><input type="number" id="m-amount" inputmode="numeric" value="500">
+    <div class="hint">例：自分と田中さんの2人分1,000円を送った → 田中さんを選んで 500</div>
     <button class="btn" onclick="run(this, () => submitPair('transfer','target_member_id','m-target'))">登録する</button>`);
+  syncAmount('m-pid');
 }
 async function openClaim() {
   openModal(SPIN);
   const opts = await memberOptions(false);
-  openModal(`<h3>誰かに払ってもらった</h3><div class="muted">その人の支払いのうち、あなたの分を付け替えます。</div>
+  openModal(`<h3>誰かに払ってもらった</h3><div class="muted">自分の分を他の人が払ってくれたときに登録します。</div>
     <label>誰に払ってもらった？</label><select id="m-payer">${opts}</select>
+    <label>どの練習の分？</label>${practiceSelect('m-pid', 'now')}
     <label>自分の分の金額</label><input type="number" id="m-amount" inputmode="numeric" value="500">
     <button class="btn" onclick="run(this, () => submitPair('claim','payer_member_id','m-payer'))">登録する</button>`);
+  syncAmount('m-pid');
 }
 async function submitPair(action, key, selId) {
   const amount = Number(document.getElementById('m-amount').value), who = document.getElementById(selId).value;
   if (!amount || !who) { toast('入力してください'); return; }
-  await api(action, { [key]: who, amount });
+  await api(action, { [key]: who, amount, practice_id: document.getElementById('m-pid').value });
   closeModal(); toast('登録しました'); await loadMe(); await loadHistory();
 }
 async function loadHistory() {
   const d = await api('history');
-  const label = { paypay: 'PayPay', paypay_pending: 'PayPay（確認待ち）', cash: '現金', transfer: '付け替え' };
+  const label = p => p.method === 'transfer' ? (p.amount < 0 ? '他の人の分' : '払ってもらった') : ({ paypay: 'PayPay', paypay_pending: 'PayPay（確認待ち）', cash: '現金' }[p.method] || p.method);
   document.getElementById('hist-pay').innerHTML = d.payments.slice(0, 20).map(p => `
-    <div class="row"><div class="l"><div class="t">${yen(p.amount)}</div><div class="s">${fmtMD(p.date)} ${esc(p.note || '')}</div></div><span class="pill">${label[p.method] || p.method}</span></div>`).join('') || '<div class="empty">まだありません</div>';
+    <div class="row"><div class="l"><div class="t">${p.amount < 0 ? '−' : ''}${yen(Math.abs(p.amount))}</div><div class="s">${fmtMD(p.date)} ${esc(p.note || '')}</div></div><span class="pill">${label(p)}</span></div>`).join('') || '<div class="empty">まだありません</div>';
   document.getElementById('hist-att').innerHTML = d.attendance.filter(a => a.status === 'attended').slice(0, 20).map(a => `
     <div class="row"><div class="l"><div class="t">${fmtMD(a.date)}</div></div><span class="pill">${yen(a.price)}</span></div>`).join('') || '<div class="empty">まだありません</div>';
 }
