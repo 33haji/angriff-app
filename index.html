@@ -393,7 +393,7 @@ function renderHome() {
       <div class="eyebrow">次の練習</div>
       <div class="date">${fmtMD(next.date)}</div>
       <div class="place">${fmtTime(next) ? '🕒 ' + fmtTime(next) + '　' : ''}📍 ${esc(next.place || '場所未定')}</div>
-      ${next.code ? `<div class="place" style="margin-top:2px">🔢 番号 <b style="color:#fff;font-size:16px;letter-spacing:.08em">${esc(next.code)}</b></div>` : ''}
+      ${next.code ? `<div class="place" style="margin-top:2px">🔢 番号 ${esc(next.code)}</div>` : ''}
       <div class="meta"><span>${countText(next)}</span>${isFull(next) ? '<span class="pill warn">満員</span>' : ''}</div>
       ${seg3(next.practice_id, next.my_status)}
     </div>` : `<div class="hero" style="min-height:auto"><div class="eyebrow">次の練習</div><div class="place">まだ予定が入っていません</div></div>`;
@@ -476,7 +476,7 @@ async function openPractice(pid) {
       <div class="card" style="margin:10px 0 0;padding:12px 14px">
         ${fmtTime(p) ? `<div style="display:flex;gap:10px;align-items:center;margin-bottom:8px"><span style="font-size:18px">🕒</span><b>${fmtTime(p)}</b></div>` : ''}
         <div style="display:flex;gap:10px;align-items:center"><span style="font-size:18px">📍</span><div><b>${esc(p.place || '場所未定')}</b><div class="muted">参加費 ${yen(p.price)}</div></div></div>
-        ${p.code ? `<div style="display:flex;gap:10px;align-items:center;margin-top:8px"><span style="font-size:18px">🔢</span><div><span class="muted">番号</span> <b style="font-size:18px;letter-spacing:.08em">${esc(p.code)}</b></div></div>` : ''}
+        ${p.code ? `<div class="muted" style="margin-top:8px;padding-left:28px">🔢 番号 ${esc(p.code)}</div>` : ''}
       </div>
       ${p.status === 'scheduled' ? seg3(pid, p.my_status, 'detail') : ''}
       <div class="card tight" style="margin-top:14px"><div class="eyebrow">${p.status === 'confirmed' ? '出席' : '◯ 参加'}（${yes.length}人）</div>${names(yes)}</div>
