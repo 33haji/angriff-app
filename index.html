@@ -106,6 +106,7 @@
   .hint { font-size:12px; color:var(--muted); margin-top:6px; }
   input:not([type=checkbox]), select { display:block; width:100%; min-width:0; max-width:100%; padding:12px; font-size:16px; border:1px solid var(--line); border-radius:var(--r-sm); background:#fff; -webkit-appearance:none; appearance:none; }
   input[type=date], input[type=time] { min-height:48px; }
+  textarea { display:block; width:100%; min-height:220px; padding:12px; font-size:15px; line-height:1.6; border:1px solid var(--line); border-radius:var(--r-sm); background:#fff; font-family:inherit; resize:vertical; }
   .fields { display:flex; gap:12px; } .fields > div { flex:1; min-width:0; }
   .np-row { border:1px solid var(--line); border-radius:var(--r-sm); padding:4px 12px 12px; margin-top:12px; position:relative; }
   .np-row .rm { position:absolute; top:8px; right:8px; background:none; border:none; color:var(--faint); font-size:18px; padding:4px 8px; }
@@ -226,6 +227,11 @@
       <button class="btn ghost" onclick="addPracticeRow()">＋ 日程を追加</button>
       <button class="btn dark" onclick="run(this, createPractices)">まとめて登録する</button>
     </div>
+    <div class="card">
+      <h2>グループへのお知らせ</h2>
+      <div class="muted">あなたのLINEから送ります（無料枠を使いません）。練習前日と日曜に、あんぐから1:1でリンクが届きます。</div>
+      <div class="grid2" style="margin-top:10px"><button class="btn ghost" onclick="openSendTomorrow()">次の練習のお知らせ</button><button class="btn ghost" onclick="openSend('unpaid')">未納のお知らせ</button></div>
+    </div>
     <div class="card tight"><div class="eyebrow">出席の確定</div><div id="admin-practices"><div class="ph" style="min-height:100px"><span class="spin"></span></div></div></div>
     <div class="card tight admin-only"><div class="eyebrow">未払い</div><div id="admin-unpaid"><div class="ph" style="min-height:80px"><span class="spin"></span></div></div></div>
     <div class="card tight admin-only"><div class="eyebrow">残高プラス（前払い・立て替え・記録漏れ）</div><div id="admin-plus"><div class="ph" style="min-height:80px"><span class="spin"></span></div></div></div>
@@ -328,6 +334,9 @@ async function main() {
     await loadMe();
     document.getElementById('loading').classList.add('hidden');
     show('home');
+    const q = new URLSearchParams(location.search);
+    const sendKind = q.get('send');
+    if (sendKind && isStaff()) { show('admin'); openSend(sendKind, { practice_id: q.get('pid') || undefined }); }
   } catch (e) {
     const el = document.getElementById('loading');
     el.classList.remove('page-loading');
@@ -617,6 +626,57 @@ async function loadHistory() {
     <div class="row"><div class="l"><div class="t">${esc(o.name)} の分</div><div class="s">${fmtMD(o.date)} ${esc(o.note || '')}</div></div><span class="pill">${yen(o.amount)}</span></div>`).join('');
 }
 
+// ---------- グループへの送信（管理者が自分のLINEから送る） ----------
+const SEND_TITLES = { tomorrow: '明日の練習のお知らせ', unpaid: '未納のお知らせ', added: '練習日の追加', updated: '練習日の変更', deleted: '練習の中止' };
+async function openSend(kind, opts = {}) {
+  openModal(SPIN);
+  let text = opts.text;
+  if (!text) {
+    const d = await api('draft', { kind, practice_id: opts.practice_id, practice_ids: opts.practice_ids });
+    text = d.text;
+  }
+  if (!text) { openModal('<div class="empty">送る内容がありません（未払いがない、など）</div>'); return; }
+  const inGroup = (() => { try { return liff.getContext()?.type === 'group' || liff.getContext()?.type === 'room'; } catch (e) { return false; } })();
+  openModal(`<h3>${SEND_TITLES[kind] || 'お知らせ'}を送る</h3>
+    <div class="muted">${inGroup ? 'このトークに、あなたの発言として送ります。' : '送信先を選ぶ画面が開きます。サークルのグループを選ぶと、あなたの発言として送られます。'}文面は直せます。</div>
+    <label>文面</label><textarea id="send-text">${esc(text)}</textarea>
+    <button class="btn" onclick="run(this, () => doSend('${kind}', '${opts.practice_id || ''}'))">${inGroup ? 'このトークに送る' : 'グループに送る'}</button>
+    <button class="btn ghost" onclick="run(this, copySendText)">文面をコピーする</button>`);
+}
+async function copySendText() {
+  const t = document.getElementById('send-text').value;
+  try { await navigator.clipboard.writeText(t); toast('コピーしました'); } catch (e) { toast('コピーできませんでした'); }
+}
+async function doSend(kind, pid) {
+  const text = document.getElementById('send-text').value.trim();
+  if (!text) { toast('文面が空です'); return; }
+  const msg = [{ type: 'text', text }];
+  let ctxType = null; try { ctxType = liff.getContext()?.type; } catch (e) {}
+  if (ctxType === 'group' || ctxType === 'room') {
+    await liff.sendMessages(msg);
+  } else if (liff.isApiAvailable && liff.isApiAvailable('shareTargetPicker')) {
+    const r = await liff.shareTargetPicker(msg, { isMultiple: false });
+    if (!r) { toast('送信をキャンセルしました'); return; }
+  } else {
+    await navigator.clipboard.writeText(text).catch(() => {});
+    toast('この環境では送れないので文面をコピーしました。グループに貼り付けてください'); return;
+  }
+  api('sent', { kind, practice_id: pid }).catch(() => {});
+  closeModal(); toast('グループに送りました');
+}
+function openSendTomorrow() {
+  const today = todayStr();
+  const next = state.practices.filter(p => p.date >= today && p.status === 'scheduled').sort((a, b) => a.date.localeCompare(b.date))[0];
+  if (!next) { toast('予定の練習がありません'); return; }
+  openSend('tomorrow', { practice_id: next.practice_id });
+}
+function afterPracticeChange(kind, text, pid) {
+  if (!text) return;
+  openModal(`<h3>グループに知らせますか？</h3><div class="muted">${SEND_TITLES[kind]}の文面を用意しました。</div>
+    <button class="btn" onclick="openSend('${kind}', { text: ${JSON.stringify(text).replace(/"/g, '&quot;')}, practice_id: '${pid || ''}' })">グループに知らせる</button>
+    <button class="btn ghost" onclick="closeModal()">あとで</button>`);
+}
+
 // ---------- 管理 ----------
 async function loadAdmin() {
   renderAdminPractices();
@@ -650,14 +710,16 @@ function openEditPractice(pid) {
 async function saveEditPractice(pid) {
   const g = id => document.getElementById(id).value;
   if (!g('ep-date')) { toast('日付を選んでください'); return; }
-  await api('admin_update_practice', { practice_id: pid, date: g('ep-date'), start: g('ep-start'), end: g('ep-end'), place: g('ep-place'), price: g('ep-price') });
+  const r = await api('admin_update_practice', { practice_id: pid, date: g('ep-date'), start: g('ep-start'), end: g('ep-end'), place: g('ep-place'), price: g('ep-price') });
   closeModal(); toast('保存しました'); await loadMe(); if (state.view === 'admin') renderAdminPractices();
+  afterPracticeChange('updated', r.text, pid);
 }
 async function deletePractice(pid) {
   const p = practiceById(pid);
   if (!confirm(`${fmtMD(p.date)} の練習を削除します。出欠の記録も消えます。よろしいですか？`)) return;
-  await api('admin_delete_practice', { practice_id: pid });
+  const r = await api('admin_delete_practice', { practice_id: pid });
   closeModal(); toast('削除しました'); await loadMe(); if (state.view === 'admin') renderAdminPractices();
+  afterPracticeChange('deleted', r.text);
 }
 let npSeq = 0;
 function addPracticeRow(preset) {
@@ -691,6 +753,7 @@ async function createPractices() {
   if (exists.length && !confirm(`${exists.map(it => fmtMD(it.date)).join('、')} はすでに練習があります。追加しますか？`)) return;
   const r = await api('admin_create_practices', { items });
   toast(`${r.practices.length}件追加しました`); resetPracticeRows(); await loadMe(); renderAdminPractices();
+  afterPracticeChange('added', r.text);
 }
 async function cashCount() {
   const amount = Number(document.getElementById('cash-count').value);
