@@ -229,8 +229,8 @@
     </div>
     <div class="card">
       <h2>グループへのお知らせ</h2>
-      <div class="muted">あなたのLINEから送ります（無料枠を使いません）。練習前日と日曜に、あんぐから1:1でリンクが届きます。</div>
-      <div class="grid2" style="margin-top:10px"><button class="btn ghost" onclick="openSendTomorrow()">次の練習のお知らせ</button><button class="btn ghost" onclick="openSend('unpaid')">未納のお知らせ</button></div>
+      <div class="muted">あなたのLINEから送ります（無料枠を使いません）。練習前日と日曜に、あんぐから1:1でリンクが届きます。未納のお知らせはグループではなく、本人へのDMです。</div>
+      <div class="grid2" style="margin-top:10px"><button class="btn ghost" onclick="openSendTomorrow()">次の練習のお知らせ</button><button class="btn ghost" onclick="openSend('unpaid')">未納の人にDM</button></div>
     </div>
     <div class="card tight"><div class="eyebrow">出席の確定</div><div id="admin-practices"><div class="ph" style="min-height:100px"><span class="spin"></span></div></div></div>
     <div class="card tight admin-only"><div class="eyebrow">未払い</div><div id="admin-unpaid"><div class="ph" style="min-height:80px"><span class="spin"></span></div></div></div>
@@ -630,6 +630,7 @@ async function loadHistory() {
 const SEND_TITLES = { tomorrow: '明日の練習のお知らせ', unpaid: '未納のお知らせ', added: '練習日の追加', updated: '練習日の変更', deleted: '練習の中止' };
 async function openSend(kind, opts = {}) {
   openModal(SPIN);
+  if (kind === 'unpaid') return openSendUnpaid();
   let text = opts.text;
   if (!text) {
     const d = await api('draft', { kind, practice_id: opts.practice_id, practice_ids: opts.practice_ids });
@@ -642,6 +643,43 @@ async function openSend(kind, opts = {}) {
     <label>文面</label><textarea id="send-text">${esc(text)}</textarea>
     <button class="btn" onclick="run(this, () => doSend('${kind}', '${opts.practice_id || ''}'))">${inGroup ? 'このトークに送る' : 'グループに送る'}</button>
     <button class="btn ghost" onclick="run(this, copySendText)">文面をコピーする</button>`);
+}
+// 未納は、ひとりずつ自分のLINEからDMで送る
+let unpaidPeople = [], unpaidSent = new Set();
+async function openSendUnpaid() {
+  const d = await api('draft', { kind: 'unpaid' });
+  unpaidPeople = d.people || []; unpaidSent = new Set();
+  renderSendUnpaid();
+}
+function renderSendUnpaid() {
+  if (!unpaidPeople.length) { openModal('<div class="empty">未納の人はいません🎉</div>'); return; }
+  openModal(`<h3>未納のお知らせをDMで送る</h3>
+    <div class="muted">「送る」を押すと送信先を選ぶ画面が開くので、その人を選んでください。あなたの発言として届きます。</div>
+    <div class="card tight" style="margin-top:12px">${unpaidPeople.map((u, i) => `
+      <div class="row"><div class="l"><div class="t">${esc(u.name)}</div><div class="s">${yen(u.amount)}（${esc(u.dates)}分）</div></div>
+        ${unpaidSent.has(u.member_id) ? '<span class="pill ok">送信済み</span>' : `<button class="btn sm ghost" onclick="previewUnpaidDm(${i})">文面</button><button class="btn sm dark" onclick="run(this, () => sendUnpaidDm(${i}))">送る</button>`}
+      </div>`).join('')}</div>
+    <button class="btn ghost" onclick="closeModal()">閉じる</button>`);
+}
+function previewUnpaidDm(i) {
+  const u = unpaidPeople[i];
+  openModal(`<h3>${esc(u.name)}さんへの文面</h3><label>文面（直せます）</label><textarea id="send-text">${esc(u.text)}</textarea>
+    <button class="btn" onclick="run(this, () => sendUnpaidDm(${i}, document.getElementById('send-text').value))">送る</button>
+    <button class="btn ghost" onclick="renderSendUnpaid()">戻る</button>`);
+}
+async function sendUnpaidDm(i, textOverride) {
+  const u = unpaidPeople[i];
+  const text = (textOverride || u.text).trim();
+  if (liff.isApiAvailable && liff.isApiAvailable('shareTargetPicker')) {
+    const r = await liff.shareTargetPicker([{ type: 'text', text }], { isMultiple: false });
+    if (!r) { toast('送信をキャンセルしました'); renderSendUnpaid(); return; }
+  } else {
+    await navigator.clipboard.writeText(text).catch(() => {});
+    toast('この環境では送れないので文面をコピーしました'); renderSendUnpaid(); return;
+  }
+  unpaidSent.add(u.member_id);
+  if (unpaidSent.size === unpaidPeople.length) api('sent', { kind: 'unpaid' }).catch(() => {});
+  toast(`${u.name}さんに送りました`); renderSendUnpaid();
 }
 async function copySendText() {
   const t = document.getElementById('send-text').value;
