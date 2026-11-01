@@ -319,6 +319,15 @@ function parseD(s) { const [y, m, d] = String(s).slice(0, 10).split('-').map(Num
 function fmtMD(s) { const d = parseD(s); return `${d.getMonth() + 1}/${d.getDate()}（${DOW[d.getDay()]}）`; }
 function fmtTime(p) { return p.start ? `${p.start}${p.end ? '–' + p.end : ''}` : ''; }
 function fmtWhen(p) { const t = fmtTime(p); return fmtMD(p.date) + (t ? ' ' + t : ''); }
+const needsCode = place => /四谷/.test(place || '');
+function codeField(prefix, place, value) {
+  return `<div data-codewrap class="${needsCode(place) ? '' : 'hidden'}"><label>番号（4桁）</label><input type="text" ${prefix} inputmode="numeric" pattern="[0-9]*" maxlength="4" placeholder="例：1234" value="${esc(value || '')}"></div>`;
+}
+function toggleCode(container) {
+  const place = container.querySelector('[data-k=place], #ep-place').value;
+  container.querySelector('[data-codewrap]').classList.toggle('hidden', !needsCode(place));
+}
+function badCode(place, code) { return needsCode(place) && code && !/^\d{4}$/.test(code); }
 function isFull(p) { return state.capacity && p.count_attend >= state.capacity && p.my_status !== 'will_attend'; }
 function ymd(d) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
 function todayStr() { return ymd(new Date()); }
@@ -384,6 +393,7 @@ function renderHome() {
       <div class="eyebrow">次の練習</div>
       <div class="date">${fmtMD(next.date)}</div>
       <div class="place">${fmtTime(next) ? '🕒 ' + fmtTime(next) + '　' : ''}📍 ${esc(next.place || '場所未定')}</div>
+      ${next.code ? `<div class="place" style="margin-top:2px">🔢 番号 <b style="color:#fff;font-size:16px;letter-spacing:.08em">${esc(next.code)}</b></div>` : ''}
       <div class="meta"><span>${countText(next)}</span>${isFull(next) ? '<span class="pill warn">満員</span>' : ''}</div>
       ${seg3(next.practice_id, next.my_status)}
     </div>` : `<div class="hero" style="min-height:auto"><div class="eyebrow">次の練習</div><div class="place">まだ予定が入っていません</div></div>`;
@@ -466,6 +476,7 @@ async function openPractice(pid) {
       <div class="card" style="margin:10px 0 0;padding:12px 14px">
         ${fmtTime(p) ? `<div style="display:flex;gap:10px;align-items:center;margin-bottom:8px"><span style="font-size:18px">🕒</span><b>${fmtTime(p)}</b></div>` : ''}
         <div style="display:flex;gap:10px;align-items:center"><span style="font-size:18px">📍</span><div><b>${esc(p.place || '場所未定')}</b><div class="muted">参加費 ${yen(p.price)}</div></div></div>
+        ${p.code ? `<div style="display:flex;gap:10px;align-items:center;margin-top:8px"><span style="font-size:18px">🔢</span><div><span class="muted">番号</span> <b style="font-size:18px;letter-spacing:.08em">${esc(p.code)}</b></div></div>` : ''}
       </div>
       ${p.status === 'scheduled' ? seg3(pid, p.my_status, 'detail') : ''}
       <div class="card tight" style="margin-top:14px"><div class="eyebrow">${p.status === 'confirmed' ? '出席' : '◯ 参加'}（${yes.length}人）</div>${names(yes)}</div>
@@ -740,7 +751,8 @@ function openEditPractice(pid) {
   openModal(`<h3>練習日を編集</h3>
     <label>日付</label><input type="date" id="ep-date" value="${p.date}">
     <div class="fields"><div><label>開始</label><input type="time" id="ep-start" value="${p.start || ''}"></div><div><label>終了</label><input type="time" id="ep-end" value="${p.end || ''}"></div></div>
-    <label>場所</label><input type="text" id="ep-place" value="${esc(p.place || '')}">
+    <div id="ep-wrap"><label>場所</label><input type="text" id="ep-place" value="${esc(p.place || '')}" oninput="toggleCode(document.getElementById('ep-wrap'))">
+    ${codeField('id="ep-code"', p.place, p.code)}</div>
     <label>参加費</label><select id="ep-price"><option value="500" ${p.price == 500 ? 'selected' : ''}>500円</option><option value="300" ${p.price == 300 ? 'selected' : ''}>300円</option></select>
     <button class="btn dark" onclick="run(this, () => saveEditPractice('${pid}'))">保存する</button>
     <button class="btn ghost" style="color:var(--warn)" onclick="run(this, () => deletePractice('${pid}'))">この練習を削除</button>`);
@@ -748,7 +760,9 @@ function openEditPractice(pid) {
 async function saveEditPractice(pid) {
   const g = id => document.getElementById(id).value;
   if (!g('ep-date')) { toast('日付を選んでください'); return; }
-  const r = await api('admin_update_practice', { practice_id: pid, date: g('ep-date'), start: g('ep-start'), end: g('ep-end'), place: g('ep-place'), price: g('ep-price') });
+  const code = needsCode(g('ep-place')) ? g('ep-code').trim() : '';
+  if (badCode(g('ep-place'), code)) { toast('番号は4桁の数字で入れてください'); return; }
+  const r = await api('admin_update_practice', { practice_id: pid, date: g('ep-date'), start: g('ep-start'), end: g('ep-end'), place: g('ep-place'), price: g('ep-price'), code });
   closeModal(); toast('保存しました'); await loadMe(); if (state.view === 'admin') renderAdminPractices();
   afterPracticeChange('updated', r.text, pid);
 }
@@ -764,13 +778,14 @@ function addPracticeRow(preset) {
   const id = ++npSeq;
   const last = document.querySelector('#np-rows .np-row:last-child');
   const v = k => last ? last.querySelector(`[data-k=${k}]`).value : null;
-  const d = preset || { date: '', start: v('start') || '19:00', end: v('end') || '22:00', place: v('place') || '四谷スポーツスクエア', price: v('price') || '500' };
+  const d = preset || { date: '', start: v('start') || '19:00', end: v('end') || '22:00', place: v('place') || '四谷スポーツスクエア', price: v('price') || '500', code: '' };
   const el = document.createElement('div');
   el.className = 'np-row'; el.id = 'np-' + id;
   el.innerHTML = `<button class="rm" onclick="removePracticeRow(${id})" aria-label="削除">×</button>
     <label>日付</label><input type="date" data-k="date" value="${d.date}">
     <div class="fields"><div><label>開始</label><input type="time" data-k="start" value="${d.start}"></div><div><label>終了</label><input type="time" data-k="end" value="${d.end}"></div></div>
-    <label>場所</label><input type="text" data-k="place" value="${esc(d.place)}">
+    <label>場所</label><input type="text" data-k="place" value="${esc(d.place)}" oninput="toggleCode(this.closest('.np-row'))">
+    ${codeField('data-k="code"', d.place, d.code)}
     <label>参加費</label><select data-k="price"><option value="500" ${d.price == 500 ? 'selected' : ''}>500円</option><option value="300" ${d.price == 300 ? 'selected' : ''}>300円</option></select>`;
   document.getElementById('np-rows').appendChild(el);
 }
@@ -783,9 +798,10 @@ function resetPracticeRows() { document.getElementById('np-rows').innerHTML = ''
 async function createPractices() {
   const items = [...document.querySelectorAll('#np-rows .np-row')].map(r => {
     const g = k => r.querySelector(`[data-k=${k}]`).value;
-    return { date: g('date'), start: g('start'), end: g('end'), place: g('place'), price: g('price') };
+    return { date: g('date'), start: g('start'), end: g('end'), place: g('place'), price: g('price'), code: needsCode(g('place')) ? g('code').trim() : '' };
   });
   if (items.some(it => !it.date)) { toast('日付が入っていない行があります'); return; }
+  if (items.some(it => badCode(it.place, it.code))) { toast('番号は4桁の数字で入れてください'); return; }
   const dup = new Set(); if (items.some(it => dup.size === dup.add(it.date).size)) { toast('同じ日付が重複しています'); return; }
   const exists = items.filter(it => state.practices.some(p => p.date === it.date));
   if (exists.length && !confirm(`${exists.map(it => fmtMD(it.date)).join('、')} はすでに練習があります。追加しますか？`)) return;
