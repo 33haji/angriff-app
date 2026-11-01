@@ -58,11 +58,11 @@
   .seg button .lb { font-size:12px; font-weight:600; }
   .seg button.on-yes { background:var(--accent); border-color:var(--accent); color:#fff; }
   .seg button.on-maybe { background:var(--amber); border-color:var(--amber); color:#111827; }
-  .seg button.on-no { background:var(--ink); border-color:var(--ink); color:#fff; }
+  .seg button.on-no { background:#3730A3; border-color:#3730A3; color:#fff; }
   .hero .seg button { background:rgba(255,255,255,.08); border-color:rgba(255,255,255,.18); color:#fff; }
   .hero .seg button.on-yes { background:var(--accent); border-color:var(--accent); }
   .hero .seg button.on-maybe { background:var(--amber); border-color:var(--amber); color:#111827; }
-  .hero .seg button.on-no { background:#fff; border-color:#fff; color:var(--ink); }
+  .hero .seg button.on-no { background:#6366F1; border-color:#6366F1; color:#fff; }
   .hero .hint { color:rgba(255,255,255,.75); }
 
   .cal-head { display:flex; align-items:center; justify-content:space-between; padding:14px 16px 6px; }
@@ -76,7 +76,7 @@
   .cal .d.has { background:var(--accent-soft); color:var(--accent-ink); font-weight:700; }
   .cal .d.has.mine { background:var(--accent); color:#fff; }
   .cal .d.has.maybe { background:var(--amber-soft); color:#92400E; }
-  .cal .d.has.no { background:#DBEAFE; color:#1D4ED8; }
+  .cal .d.has.no { background:#E0E7FF; color:#3730A3; }
   .cal .d.has.done { background:#E5E7EB; color:#6B7280; }
   .legend { display:flex; flex-wrap:wrap; gap:12px; padding:0 16px 12px; font-size:12px; color:var(--muted); }
   .season-band { position:absolute; left:0; right:0; top:0; height:150px; background:var(--season-band); z-index:-1; }
@@ -94,7 +94,7 @@
   .datebox b { display:block; font-size:18px; }
   .datebox small { font-size:11px; color:var(--muted); }
   .pill { display:inline-block; font-size:12px; padding:2px 9px; border-radius:999px; background:var(--bg); color:var(--muted); font-weight:600; white-space:nowrap; }
-  .pill.yes { background:var(--accent); color:#fff; } .pill.maybe { background:#D97706; color:#fff; } .pill.no { background:#1D4ED8; color:#fff; }
+  .pill.yes { background:var(--accent); color:#fff; } .pill.maybe { background:#D97706; color:#fff; } .pill.no { background:#3730A3; color:#fff; }
   .pill.ok { background:var(--ok-soft); color:#15803D; } .pill.warn { background:var(--warn-soft); color:#B91C1C; } .pill.info { background:var(--info-soft); color:#1D4ED8; } .pill.acc { background:var(--accent-soft); color:#C2410C; } .pill.amber { background:var(--amber-soft); color:#92400E; } .pill.ink { background:var(--ink); color:#fff; }
 
   .btn { display:flex; align-items:center; justify-content:center; width:100%; padding:14px; border:none; border-radius:var(--r-sm); font-size:15px; font-weight:700; background:var(--accent); color:#fff; margin-top:12px; min-height:50px; }
@@ -160,7 +160,7 @@
         <button onclick="moveMonth(1)">›</button>
       </div>
       <div class="cal" id="cal"></div>
-      <div class="legend"><span><i style="background:var(--accent)"></i>参加</span><span><i style="background:var(--amber-soft)"></i>未定</span><span><i style="background:#DBEAFE"></i>欠席</span><span><i style="background:var(--accent-soft)"></i>練習日</span><span><i style="background:#E5E7EB"></i>開催済み</span></div>
+      <div class="legend"><span><i style="background:var(--accent)"></i>参加</span><span><i style="background:var(--amber-soft)"></i>未定</span><span><i style="background:#E0E7FF"></i>欠席</span><span><i style="background:var(--accent-soft)"></i>練習日</span><span><i style="background:#E5E7EB"></i>開催済み</span></div>
       <div style="padding:0 16px 16px"><button class="btn" style="margin:0" onclick="openBulk()">出欠をまとめて回答</button></div>
     </div>
     <div class="card tight" id="month-list"><div class="ph" style="min-height:120px"><span class="spin"></span></div></div>
