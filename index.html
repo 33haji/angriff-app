@@ -304,7 +304,9 @@ let state = { me: null, isAdmin: false, role: null, unpaid: [], practices: [], p
 const isStaff = () => state.role === 'admin' || state.role === 'subadmin';
 let calCursor = new Date(); calCursor.setDate(1);
 
+let liffReadyResolve; const liffReady = new Promise(r => { liffReadyResolve = r; });
 async function api(action, params = {}) {
+  await liffReady; // キャッシュ表示中に押されても、ログイン準備が終わるまで待ってから送る
   const res = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ action, idToken: liff.getIDToken(), ...params }) });
   const data = await res.json();
   if (!data.ok) throw new Error(data.error || 'error');
@@ -348,11 +350,12 @@ async function main() {
   // 前回の内容をすぐ表示して、裏で最新を取りに行く（体感の待ち時間を減らす）
   const cached = readMeCache();
   if (cached) {
-    try { applyMe(cached); state.ready = true; document.getElementById('tabs').classList.remove('hidden'); document.getElementById('loading').classList.add('hidden'); show('home'); } catch (e) {}
+    try { lastMeJson = JSON.stringify(cached); applyMe(cached); state.ready = true; document.getElementById('tabs').classList.remove('hidden'); document.getElementById('loading').classList.add('hidden'); show('home'); } catch (e) {}
   }
   try {
     await liff.init({ liffId: LIFF_ID });
     if (!liff.isLoggedIn()) { liff.login(); return; }
+    liffReadyResolve();
     liff.getProfile().then(p => { if (p.pictureUrl) document.getElementById('avatar').innerHTML = `<img src="${p.pictureUrl}" alt="">`; }).catch(() => {});
     await loadMe();
     const firstLoad = !state.ready;
@@ -385,9 +388,13 @@ function readMeCache() { try { return JSON.parse(localStorage.getItem(CACHE_KEY)
 function writeMeCache(d) { try { localStorage.setItem(CACHE_KEY, JSON.stringify(d)); } catch (e) {} }
 function clearMeCache() { try { localStorage.removeItem(CACHE_KEY); } catch (e) {} }
 
+let lastMeJson = null;
 async function loadMe() {
   const d = await api('me');
+  const json = JSON.stringify(d);
   writeMeCache(d);
+  if (json === lastMeJson) return; // 前回と同じなら描き直さない（画面が動かない）
+  lastMeJson = json;
   applyMe(d);
 }
 function applyMe(d) {
