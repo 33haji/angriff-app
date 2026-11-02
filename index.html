@@ -141,6 +141,8 @@
 
   .modal { position:fixed; inset:0; background:rgba(17,24,39,.45); display:flex; align-items:flex-end; z-index:20; }
   .sheet { background:var(--bg); width:100%; max-width:560px; margin:0 auto; border-radius:22px 22px 0 0; padding:10px 16px calc(20px + env(safe-area-inset-bottom)); max-height:88vh; overflow:auto; min-height:220px; }
+  .sheet { position:relative; }
+  .sheet-close { position:sticky; top:0; float:right; margin:-4px -4px 0 8px; width:34px; height:34px; border-radius:50%; border:none; background:#E5E7EB; color:var(--ink); font-size:20px; line-height:34px; padding:0; z-index:3; }
   .grip { width:40px; height:4px; border-radius:2px; background:var(--line); margin:4px auto 14px; }
   .sheet h3 { margin:0 0 4px; font-size:19px; font-weight:800; }
   .chk { display:flex; align-items:center; gap:12px; padding:11px 0; border-top:1px solid var(--line); }
@@ -260,7 +262,7 @@
   <button data-v="admin" id="tab-admin" class="hidden" onclick="show('admin')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>管理</button>
 </nav>
 
-<div id="modal" class="modal hidden" onclick="if(event.target===this)closeModal()"><div class="sheet"><div class="grip"></div><div id="modal-body"></div></div></div>
+<div id="modal" class="modal hidden" onclick="if(event.target===this)closeModal()"><div class="sheet"><div class="grip"></div><button class="sheet-close" onclick="closeModal()" aria-label="閉じる">×</button><div id="modal-body"></div></div></div>
 <div id="toast" class="toast"></div>
 
 <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
@@ -343,19 +345,27 @@ function closeModal() { document.getElementById('modal').classList.add('hidden')
 function practiceById(id) { return state.practices.find(p => p.practice_id === id); }
 
 async function main() {
+  // 前回の内容をすぐ表示して、裏で最新を取りに行く（体感の待ち時間を減らす）
+  const cached = readMeCache();
+  if (cached) {
+    try { applyMe(cached); state.ready = true; document.getElementById('tabs').classList.remove('hidden'); document.getElementById('loading').classList.add('hidden'); show('home'); } catch (e) {}
+  }
   try {
     await liff.init({ liffId: LIFF_ID });
     if (!liff.isLoggedIn()) { liff.login(); return; }
     liff.getProfile().then(p => { if (p.pictureUrl) document.getElementById('avatar').innerHTML = `<img src="${p.pictureUrl}" alt="">`; }).catch(() => {});
     await loadMe();
+    const firstLoad = !state.ready;
     state.ready = true;
     document.getElementById('tabs').classList.remove('hidden');
     document.getElementById('loading').classList.add('hidden');
-    show('home');
+    if (firstLoad) show('home');
+    loadHistory().catch(() => {}); // 支払いタブを開いたときにすぐ出るよう先読み
     const q = new URLSearchParams(location.search);
     const sendKind = q.get('send');
     if (sendKind && isStaff()) { show('admin'); openSend(sendKind, { practice_id: q.get('pid') || undefined }); }
   } catch (e) {
+    clearMeCache();
     state.ready = false;
     document.getElementById('tabs').classList.add('hidden');
     ['home', 'pay', 'admin'].forEach(k => document.getElementById('view-' + k).classList.add('hidden'));
@@ -370,8 +380,17 @@ async function main() {
   }
 }
 
+const CACHE_KEY = 'angriff_me_v1';
+function readMeCache() { try { return JSON.parse(localStorage.getItem(CACHE_KEY) || 'null'); } catch (e) { return null; } }
+function writeMeCache(d) { try { localStorage.setItem(CACHE_KEY, JSON.stringify(d)); } catch (e) {} }
+function clearMeCache() { try { localStorage.removeItem(CACHE_KEY); } catch (e) {} }
+
 async function loadMe() {
   const d = await api('me');
+  writeMeCache(d);
+  applyMe(d);
+}
+function applyMe(d) {
   state.me = d.me; state.isAdmin = d.isAdmin; state.role = d.role || null; state.unpaid = d.unpaid || []; state.practices = d.practices; state.paypayId = d.paypayId; state.capacity = d.capacity || 18;
   const av = document.getElementById('avatar'); if (!av.querySelector('img')) av.textContent = (d.me.name || '?').trim().slice(0, 1);
   document.getElementById('tab-admin').classList.toggle('hidden', !isStaff());
@@ -538,7 +557,7 @@ async function openConfirm(pid) {
   const st = {}; d.attendees.forEach(a => { st[a.member_id] = a.status; });
   const guests = d.attendees.filter(a => a.type === 'guest');
   const on = s => s === 'will_attend' || s === 'attended';
-  const rowsM = state.members.map(m => `<label class="chk"><input type="checkbox" value="${m.member_id}" ${on(st[m.member_id]) ? 'checked' : ''}><span>${esc(m.name)}${st[m.member_id] === 'undecided' ? ' <span class="pill amber">△</span>' : ''}</span></label>`).join('');
+  const rowsM = state.members.filter(m => m.type === 'member').map(m => `<label class="chk"><input type="checkbox" value="${m.member_id}" ${on(st[m.member_id]) ? 'checked' : ''}><span>${esc(m.name)}${st[m.member_id] === 'undecided' ? ' <span class="pill amber">△</span>' : ''}</span></label>`).join('');
   const rowsG = guests.map(g => `<label class="chk"><input type="checkbox" value="${g.member_id}" ${g.status !== 'absent' ? 'checked' : ''}><span>${esc(g.name)} <span class="pill">助っ人</span></span></label>`).join('');
   openModal(`<h3>出席を確定</h3><div class="muted">${fmtMD(d.practice.date)}。来た人にチェック。保存すると請求が確定します。</div>
     <div class="sticky-count" style="margin-top:10px"><span class="muted">チェック中</span><span><b id="confirm-count">0</b> 人</span></div>
@@ -561,7 +580,8 @@ function renderPayStatus() {
   const u = state.unpaid;
   document.getElementById('pay-status').innerHTML = state.me.exempt ? '' :
     !u.length ? `<div class="banner ok"><div class="ic">✓</div><div><div class="t">未払いはありません</div></div></div>` :
-    `<div class="banner warn"><div class="ic">!</div><div><div class="t">未払いがあります</div><div class="s">${esc(u.map(x => fmtMD(x.date)).join('、'))} の分</div></div></div>`;
+    `<div class="banner warn"><div class="ic">!</div><div><div class="t">未払いがあります</div><div class="s">${esc(u.map(x => fmtMD(x.date)).join('、'))} の分</div>
+      <div class="s" style="margin-top:6px;opacity:1">💡 PayPayで払った分は、反映まで最大1週間ほどかかります。送金済みなら、未払いと表示されていても大丈夫です。</div></div></div>`;
 }
 function copyPayPay() {
   if (!state.paypayId) return;
