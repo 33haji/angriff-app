@@ -593,7 +593,7 @@ async function openPractice(pid) {
         <div class="card evcard" style="margin:10px 0 0;padding:12px 14px">
           <div style="display:flex;gap:10px;align-items:center"><span style="font-size:18px">📅</span><b>${fmtWhen(p)}</b></div>
           ${p.place ? `<div style="display:flex;gap:10px;align-items:center;margin-top:8px"><span style="font-size:18px">📍</span><b>${esc(p.place)}</b></div>` : ''}
-          <div style="display:flex;gap:10px;align-items:center;margin-top:8px"><span style="font-size:18px">💰</span><div>${Number(p.price) ? `<b>${yen(p.price)}</b><div class="muted">出席を確定したあと、練習費と同じ方法で支払います</div>` : '<span class="muted">費用なし</span>'}</div></div>
+          ${Number(p.price) ? `<div style="display:flex;gap:10px;align-items:center;margin-top:8px"><span style="font-size:18px">💰</span><div><b>${yen(p.price)}</b><div class="muted">出席を確定したあと、練習費と同じ方法で支払います</div></div></div>` : ''}
           ${p.deadline ? `<div style="display:flex;gap:10px;align-items:center;margin-top:8px"><span style="font-size:18px">⏰</span><div><b>出欠締切 ${fmtDeadline(p.deadline)}</b>${isClosed(p) ? ' <span class="pill warn">締切済み</span>' : ''}</div></div>` : ''}
           ${p.note ? `<div class="muted" style="margin-top:10px;white-space:pre-wrap;padding-top:10px;border-top:1px solid var(--line)">${esc(p.note)}</div>` : ''}
         </div>
