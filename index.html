@@ -49,7 +49,14 @@
   .banner.ok { background:var(--ok-soft); color:#14532D; }
   .banner.warn { background:var(--warn-soft); color:#7F1D1D; }
   .banner.ev { background:var(--ev-soft); color:var(--ev-ink); border:none; width:100%; text-align:left; font:inherit; }
-  .banner.ev .ic { background:#fff; font-size:16px; }
+  .banner.ev { align-items:flex-start; }
+  .banner.ev .ic { background:var(--ev); color:#fff; width:34px; height:34px; border-radius:10px; margin-top:2px; }
+  .banner.ev .ic svg { width:20px; height:20px; }
+  .banner.ev .when { font-size:13px; color:var(--ev-ink); opacity:.75; margin-top:1px; }
+  .banner.ev .due { display:flex; align-items:center; gap:8px; margin-top:8px; padding:6px 10px; background:#fff; border-radius:10px; font-size:13px; font-weight:700; color:var(--ev-ink); }
+  .banner.ev .due .left { margin-left:auto; padding:1px 8px; border-radius:999px; background:var(--ev); color:#fff; font-size:12px; white-space:nowrap; }
+  .banner.ev .due.soon { color:#B91C1C; } .banner.ev .due.soon .left { background:var(--warn); }
+  .banner.ev .chev { align-self:center; }
   .banner.ev .chev { color:var(--ev); font-size:18px; }
   .banner .ic { width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex:none; background:#fff; font-weight:800; }
   .banner .t { font-weight:700; }
@@ -476,10 +483,16 @@ function countText(p) {
 /** 締切が7日以内で、自分が未回答か未定のイベント → 画面上部で呼びかける */
 function eventBanners() {
   const now = Date.now();
-  return state.practices.filter(p => isEvent(p) && p.status === 'scheduled' && p.deadline && !isClosed(p) && (deadlineMs(p) - now) <= 7 * 864e5 && (!p.my_status || p.my_status === 'undecided'))
+  return state.practices.filter(p => isEvent(p) && p.status === 'scheduled' && p.deadline && !isClosed(p) && (deadlineMs(p) - now) <= 7 * 864e5 && (!p.my_status || (p.my_status === 'undecided' && p.remind_undecided !== false)))
     .sort((a, b) => deadlineMs(a) - deadlineMs(b))
     .map(p => { const days = Math.ceil((deadlineMs(p) - now) / 864e5);
-      return `<button class="banner ev" onclick="openPractice('${p.practice_id}')"><div class="ic">🎉</div><div class="l" style="flex:1;min-width:0"><div class="t">${esc(p.name)} の出欠${p.my_status === 'undecided' ? 'が「未定」のままです' : 'がまだです'}</div><div class="s">締切 ${fmtDeadline(p.deadline)}（${days <= 0 ? '今日' : 'あと' + days + '日'}）・${fmtWhen(p)}</div></div><span class="chev">›</span></button>`; }).join('');
+      const icon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3h6v1"/><path d="M9 12l2 2 4-4"/></svg>';
+      return `<button class="banner ev" onclick="openPractice('${p.practice_id}')"><div class="ic">${icon}</div>
+        <div class="l" style="flex:1;min-width:0">
+          <div class="t">${esc(p.name)} ${p.my_status === 'undecided' ? ' が「未定」のままです' : ' の出欠がまだです'}</div>
+          <div class="when">${fmtWhen(p)}</div>
+          <div class="due${days <= 3 ? ' soon' : ''}"><span>回答締切 ${fmtDeadline(p.deadline)}</span><span class="left">${days <= 0 ? '今日まで' : 'あと' + days + '日'}</span></div>
+        </div><span class="chev">›</span></button>`; }).join('');
 }
 function renderHome() {
   const today = todayStr();
@@ -982,11 +995,13 @@ function eventFields(prefix, d) {
     <label>費用（1人あたり）</label><input type="number" id="${prefix}-price" inputmode="numeric" value="${d.price || ''}" placeholder="例：4000（なしなら空欄）">
     <label>備考</label><textarea id="${prefix}-note" style="min-height:80px" placeholder="例：飲み放題込み。集合は18:45に店の前">${esc(d.note || '')}</textarea>
     <label>出欠の締切</label><input type="datetime-local" id="${prefix}-deadline" value="${d.deadline ? d.deadline.replace(' ', 'T') : ''}">
-    <div class="hint">締切を入れると、2日前の20時にリマインドの文面が届き、締切後は本人が出欠を変えられなくなります</div>`;
+    <div class="hint">締切を入れると、2日前の20時にリマインドの文面が届き、締切後は本人が出欠を変えられなくなります</div>
+    <label class="chk" style="border-top:none;margin-top:8px;font-size:14px;color:var(--ink);font-weight:600"><input type="checkbox" id="${prefix}-remind" ${d.remind_undecided === false ? '' : 'checked'}><span>「未定」の人にも回答を呼びかける</span></label>
+    <div class="hint" style="margin-top:0">締切の7日前から、アプリ上部に回答を促すお知らせを出します。未回答の人には常に出ます</div>`;
 }
 function readEventForm(prefix) {
   const g = id => document.getElementById(`${prefix}-${id}`).value;
-  const b = { name: g('name').trim(), date: g('date'), start: g('start'), end: g('end'), place: g('place').trim(), price: g('price'), note: g('note').trim(), deadline: g('deadline') };
+  const b = { name: g('name').trim(), date: g('date'), start: g('start'), end: g('end'), place: g('place').trim(), price: g('price'), note: g('note').trim(), deadline: g('deadline'), remind_undecided: document.getElementById(`${prefix}-remind`).checked };
   if (!b.name) { toast('イベント名を入れてください'); return null; }
   if (!b.date) { toast('日付を選んでください'); return null; }
   if (b.deadline && b.deadline.replace('T', ' ') > `${b.date} ${b.start || '23:59'}`) { toast('締切はイベントの開始より前にしてください'); return null; }
