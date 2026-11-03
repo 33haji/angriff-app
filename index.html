@@ -75,6 +75,8 @@
   .hero .seg button.on-maybe { background:var(--amber); border-color:var(--amber); color:#111827; }
   .hero .seg button.on-no { background:#6366F1; border-color:#6366F1; color:#fff; }
   .hero .hint { color:rgba(255,255,255,.75); }
+  .low { color:var(--warn); font-weight:800; }
+  .hero .low { color:#FCA5A5; }
 
   .cal-head { display:flex; align-items:center; justify-content:space-between; padding:14px 16px 6px; }
   .cal-head .m { font-weight:700; font-size:16px; }
@@ -458,7 +460,11 @@ async function attend(pid, status, after) {
   await loadMe();
   if (after === 'detail') openPractice(pid);
 }
-function countText(p) { return `参加 ${p.count_attend}人・未定 ${p.count_undecided}人`; }
+const LOW_ATTEND = 12; // 練習の参加がこの人数を下回ったら数字を赤くする
+function countText(p) {
+  const low = !isEvent(p) && p.status === 'scheduled' && p.count_attend < LOW_ATTEND;
+  return `参加 ${low ? `<b class="low">${p.count_attend}</b>` : p.count_attend}人・未定 ${p.count_undecided}人`;
+}
 
 // ---------- 練習 ----------
 /** 締切が7日以内で、自分が未回答か未定のイベント → 画面上部で呼びかける */
@@ -479,7 +485,7 @@ function renderHome() {
       <div class="date">${fmtMD(next.date)}</div>
       <div class="place">${fmtTime(next) ? '🕒 ' + fmtTime(next) + '　' : ''}📍 ${esc(next.place || '場所未定')}</div>
       ${next.code ? `<div class="place" style="margin-top:2px">🔢 番号 ${esc(next.code)}</div>` : ''}
-      <div class="meta"><span>${countText(next)}</span>${atCapacity(next) ? '<span class="pill warn">満員</span>' : ''}</div>
+      <div class="meta"><span>${countText(next)}</span>${atCapacity(next) ? '<span class="pill warn">定員</span>' : ''}</div>
       ${seg3(next.practice_id, next.my_status)}
     </div>` : `<div class="hero" style="min-height:auto"><div class="eyebrow">次の練習</div><div class="place">まだ予定が入っていません</div></div>`);
   renderCalendar();
@@ -517,7 +523,7 @@ function practiceRow(p) {
     <div class="l"><div class="t">🎉 ${esc(p.name)}</div><div class="s">${[fmtTime(p), p.place ? esc(p.place) : '', countText(p)].filter(Boolean).join('　')}${p.deadline && p.status === 'scheduled' ? `<br>${isClosed(p) ? '出欠締切済み' : '出欠締切 ' + fmtDeadline(p.deadline)}` : ''}</div></div>${st}<span class="chev">›</span></button>`;
   return `<button class="row" onclick="openPractice('${p.practice_id}')">
     <div class="datebox"><b>${d.getDate()}</b><small>${DOW[d.getDay()]}</small></div>
-    <div class="l"><div class="t">${fmtTime(p) ? fmtTime(p) + '　' : ''}${esc(p.place || '場所未定')}</div><div class="s">${countText(p)}${atCapacity(p) ? '　<span class="pill warn">満員</span>' : ''}</div></div>${st}<span class="chev">›</span></button>`;
+    <div class="l"><div class="t">${fmtTime(p) ? fmtTime(p) + '　' : ''}${esc(p.place || '場所未定')}</div><div class="s">${countText(p)}${atCapacity(p) ? '　<span class="pill warn">定員</span>' : ''}</div></div>${st}<span class="chev">›</span></button>`;
 }
 
 // ---------- 出欠をまとめて回答 ----------
