@@ -643,18 +643,31 @@ async function openPractice(pid) {
 const RECRUIT_SITES = [['jimoty', 'ジモティー'], ['sportsyaroyo', 'スポーツやろうよ'], ['circlebook', 'サークルブック']];
 let recruitPollTimer = null, lastRecruit = null;
 function recruitCard(pid, r) {
-  r = r || { status: '', urls: {} };
-  const st = r.status;
-  const label = { requested: ['info', '投稿中…'], open: ['ok', '募集中'], closing: ['info', '締め処理中…'], closed: ['', '募集終了'], error: ['warn', 'エラー'] }[st];
-  const links = RECRUIT_SITES.filter(([k]) => r.urls && r.urls[k] && (st === 'open' || st === 'closing' || st === 'closed' || st === 'error'))
-    .map(([k, n]) => `<a class="row" href="${esc(r.urls[k])}" target="_blank" rel="noopener"><div class="l"><div class="t">${n}</div><div class="s">${esc(r.urls[k])}</div></div><span class="chev">›</span></a>`).join('');
+  r = r || { status: '', sites: {} };
+  const st = r.status, sites = r.sites || {};
+  const busy = st === 'requested' || st === 'closing';
+  const label = { requested: ['info', '投稿中…'], open: ['ok', '募集中'], closing: ['info', '締め処理中…'], closed: ['', '募集終了'], error: ['warn', '投稿失敗'] }[st];
+  const rows = RECRUIT_SITES.filter(([k]) => sites[k]).map(([k, n]) => {
+    const x = sites[k];
+    const pill = x.state === 'ok' ? (x.error ? '<span class="pill amber">締め失敗</span>' : '<span class="pill ok">掲載中</span>')
+      : x.state === 'error' ? '<span class="pill warn">失敗</span>' : '<span class="pill">終了</span>';
+    const sub = x.error ? `<div class="s" style="color:var(--warn);white-space:pre-wrap">${esc(x.error)}</div>`
+      : x.state !== 'error' && x.url ? `<div class="s" style="word-break:break-all">${esc(x.url)}</div>` : '';
+    const right = x.state === 'error' && !busy
+      ? `<button class="btn sm dark" onclick="run(this, () => submitRecruit('${pid}', ['${k}']))">再投稿</button>`
+      : x.state !== 'error' && x.url ? `<a class="btn sm ghost" style="text-decoration:none" href="${esc(x.url)}" target="_blank" rel="noopener">開く</a>` : '';
+    return `<div class="row"><div class="l"><div class="t">${n} ${pill}</div>${sub}</div>${right}</div>`;
+  }).join('');
+  const notYet = RECRUIT_SITES.filter(([k]) => !sites[k]); // まだ一度も出していないサイト
   let action = '';
-  if (!st || st === 'closed' || st === 'error') action = `<div style="padding:8px 16px 14px"><button class="btn ghost" style="margin:0" onclick="openRecruit('${pid}')">${st === 'error' ? 'もう一度募集を出す' : '助っ人を募集する'}</button></div>`;
-  else if (st === 'open') action = `<div style="padding:8px 16px 14px"><button class="btn ghost" style="margin:0" onclick="run(this, () => closeRecruit('${pid}'))">募集を締める</button></div>`;
-  else action = `<div class="hint" style="padding:4px 16px 14px">${st === 'requested' ? '掲示板に投稿しています。終わるとLINEでお知らせします' : '受付終了にしています'}（自宅のMacがスリープ中だと待ちになります）</div>`;
-  return `<div class="card tight"><div class="eyebrow">助っ人募集 ${label ? `<span class="pill ${label[0]}" style="margin-left:6px">${label[1]}</span>` : ''}</div>
-    ${r.error && st === 'error' ? `<div class="hint" style="padding:0 16px 8px;color:var(--warn);white-space:pre-wrap">${esc(r.error)}</div>` : ''}
-    ${links}${action}</div>`;
+  if (busy) action = `<div class="hint" style="padding:4px 16px 14px">${st === 'requested' ? '掲示板に投稿しています。終わるとLINEでお知らせします' : '受付終了にしています'}（自宅のMacがスリープ中だと待ちになります）</div>`;
+  else {
+    const btns = [];
+    if (st !== 'open' || notYet.length) btns.push(`<button class="btn ghost" style="margin:0" onclick="openRecruit('${pid}')">${st === 'open' ? 'ほかのサイトにも出す' : '助っ人を募集する'}</button>`);
+    if (st === 'open') btns.push(`<button class="btn ghost" style="margin:${btns.length ? '8px' : '0'} 0 0" onclick="run(this, () => closeRecruit('${pid}'))">募集を締める</button>`);
+    action = `<div style="padding:8px 16px 14px">${btns.join('')}</div>`;
+  }
+  return `<div class="card tight"><div class="eyebrow">助っ人募集 ${label ? `<span class="pill ${label[0]}" style="margin-left:6px">${label[1]}</span>` : ''}</div>${rows}${action}</div>`;
 }
 function openRecruit(pid) {
   const p = practiceById(pid); if (!p) return;
@@ -662,19 +675,21 @@ function openRecruit(pid) {
     <div class="card" style="margin:10px 0 0;padding:12px 14px"><b>${fmtWhen(p)}</b><div class="muted">参加費 ${yen(p.price)}・場所は「${esc((lastRecruit && lastRecruit.place_label) || '未登録')}」として掲載します（施設名は載せません）</div></div>
     ${lastRecruit && !lastRecruit.place_label ? `<div class="hint" style="color:var(--warn)">「${esc(p.place || '')}」が recruit_places シートに未登録です。登録してから募集してください</div>` : ''}
     <div class="eyebrow" style="margin-top:14px">投稿するサイト</div>
-    ${RECRUIT_SITES.map(([k, n]) => `<label class="chk"><input type="checkbox" class="rc-site" value="${k}" checked> ${n}</label>`).join('')}
+    ${RECRUIT_SITES.map(([k, n]) => { const on = lastRecruit && lastRecruit.sites && lastRecruit.sites[k] && lastRecruit.sites[k].state === 'ok';
+      return `<label class="chk"><input type="checkbox" class="rc-site" value="${k}" ${on ? 'disabled' : 'checked'}> ${n}${on ? ' <span class="pill ok">掲載中</span>' : ''}</label>`; }).join('')}
+    <div class="hint">スポーツやろうよはページが1つなので、最後に出した練習の日程に書き換わります</div>
     <button class="btn dark" onclick="run(this, () => submitRecruit('${pid}'))">募集を出す</button>
     <button class="btn ghost" onclick="openPractice('${pid}')">やめる</button>`);
 }
-async function submitRecruit(pid) {
-  const sites = [...document.querySelectorAll('.rc-site:checked')].map(c => c.value);
+async function submitRecruit(pid, only) {
+  const sites = only || [...document.querySelectorAll('.rc-site:checked:not(:disabled)')].map(c => c.value);
   if (!sites.length) { toast('サイトを選んでください'); return; }
   await api('admin_recruit_post', { practice_id: pid, sites });
   toast('投稿を開始しました');
   await openPractice(pid);
 }
 async function closeRecruit(pid) {
-  if (!confirm('各サイトの募集を受付終了にします。よろしいですか？')) return;
+  if (!confirm('掲載中のサイトの募集を受付終了にします。よろしいですか？')) return;
   await api('admin_recruit_close', { practice_id: pid });
   toast('締め処理を開始しました');
   await openPractice(pid);
