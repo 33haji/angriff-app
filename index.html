@@ -257,7 +257,7 @@
       <h2>🎉 イベントを追加</h2>
       <div class="muted">BBQや忘年会など。練習と同じように出欠を集められます。費用を入れると、出席を確定したときに練習費と同じ仕組みで請求されます。</div>
       <div id="ne-form"></div>
-      <button class="btn dark" onclick="run(this, createEvent)">イベントを登録する</button>
+      <button class="btn dark" onclick="run(this, submitNewEvent)">イベントを登録する</button>
     </div>
     <div class="card">
       <h2>グループへのお知らせ</h2>
@@ -979,7 +979,7 @@ function readEventForm(prefix) {
   return b;
 }
 function resetEventForm() { document.getElementById('ne-form').innerHTML = eventFields('ne', { start: '19:00' }); }
-async function createEvent() {
+async function submitNewEvent() {
   const b = readEventForm('ne'); if (!b) return;
   const r = await api('admin_create_event', b);
   toast('イベントを登録しました'); resetEventForm(); await loadMe(); renderAdminPractices();
