@@ -339,7 +339,10 @@ function toggleCode(container) {
   container.querySelector('[data-codewrap]').classList.toggle('hidden', !needsCode(place));
 }
 function badCode(place, code) { return needsCode(place) && code && !/^\d{4}$/.test(code); }
-function isFull(p) { return state.capacity && p.count_attend >= state.capacity && p.my_status !== 'will_attend'; }
+// 満員（定員に達している）: 一覧の「満員」表示・助っ人追加の可否に使う
+function atCapacity(p) { return !!(state.capacity && p && p.count_attend >= state.capacity); }
+// 自分が「参加」にできないか（すでに参加している人は満員でも参加のまま）
+function isFull(p) { return atCapacity(p) && p.my_status !== 'will_attend'; }
 function ymd(d) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
 function todayStr() { return ymd(new Date()); }
 function openModal(html) { document.getElementById('modal-body').innerHTML = html; document.getElementById('modal').classList.remove('hidden'); }
@@ -435,7 +438,7 @@ function renderHome() {
       <div class="date">${fmtMD(next.date)}</div>
       <div class="place">${fmtTime(next) ? '🕒 ' + fmtTime(next) + '　' : ''}📍 ${esc(next.place || '場所未定')}</div>
       ${next.code ? `<div class="place" style="margin-top:2px">🔢 番号 ${esc(next.code)}</div>` : ''}
-      <div class="meta"><span>${countText(next)}</span>${isFull(next) ? '<span class="pill warn">満員</span>' : ''}</div>
+      <div class="meta"><span>${countText(next)}</span>${atCapacity(next) ? '<span class="pill warn">満員</span>' : ''}</div>
       ${seg3(next.practice_id, next.my_status)}
     </div>` : `<div class="hero" style="min-height:auto"><div class="eyebrow">次の練習</div><div class="place">まだ予定が入っていません</div></div>`;
   renderCalendar();
@@ -468,7 +471,7 @@ function practiceRow(p) {
     : p.my_status === 'will_attend' ? '<span class="pill yes">◯ 参加</span>' : p.my_status === 'undecided' ? '<span class="pill maybe">△ 未定</span>' : p.my_status === 'absent' ? '<span class="pill no">× 欠席</span>' : '<span class="pill">未回答</span>';
   return `<button class="row" onclick="openPractice('${p.practice_id}')">
     <div class="datebox"><b>${d.getDate()}</b><small>${DOW[d.getDay()]}</small></div>
-    <div class="l"><div class="t">${fmtTime(p) ? fmtTime(p) + '　' : ''}${esc(p.place || '場所未定')}</div><div class="s">${countText(p)}${isFull(p) ? '　<span class="pill warn">満員</span>' : ''}</div></div>${st}<span class="chev">›</span></button>`;
+    <div class="l"><div class="t">${fmtTime(p) ? fmtTime(p) + '　' : ''}${esc(p.place || '場所未定')}</div><div class="s">${countText(p)}${atCapacity(p) ? '　<span class="pill warn">満員</span>' : ''}</div></div>${st}<span class="chev">›</span></button>`;
 }
 
 // ---------- 出欠をまとめて回答 ----------
@@ -511,6 +514,10 @@ async function openPractice(pid) {
     const yes = p.status === 'confirmed' ? d.attendees.filter(a => a.type === 'member' && a.status === 'attended') : grp('will_attend');
     const maybe = p.status === 'confirmed' ? [] : grp('undecided');
     const guests = d.attendees.filter(a => a.type === 'guest');
+    const headcount = d.attendees.filter(a => a.status === 'will_attend' || a.status === 'attended').length;
+    const guestFull = state.capacity && headcount >= state.capacity;
+    const canEditGuest = a => isStaff() || a.brought_by_id === state.me.member_id;
+    guestCache = {}; guests.forEach(a => { guestCache[a.member_id] = a; });
     const names = arr => arr.map(a => `<div class="row"><div class="l"><div class="t">${esc(a.name)}</div></div></div>`).join('') || '<div class="empty">まだいません</div>';
     openModal(`
       <h3>${fmtMD(p.date)}${p.status === 'confirmed' ? ' <span class="pill">開催済み</span>' : ''}</h3>
@@ -523,8 +530,10 @@ async function openPractice(pid) {
       <div class="card tight" style="margin-top:14px"><div class="eyebrow">${p.status === 'confirmed' ? '出席' : '◯ 参加'}（${yes.length}人）</div>${names(yes)}</div>
       ${p.status === 'scheduled' ? `<div class="card tight"><div class="eyebrow">△ 未定（${maybe.length}人）</div>${names(maybe)}</div>` : ''}
       <div class="card tight"><div class="eyebrow">助っ人（${guests.length}人）</div>
-        ${guests.map(a => `<div class="row"><div class="l"><div class="t">${esc(a.name)}</div><div class="s">${esc(a.brought_by || '')} が登録</div></div>${a.paid === true ? '<span class="pill ok">支払い済み</span>' : a.paid === false ? `<span class="pill warn">未払い</span>${isStaff() ? `<button class="btn sm dark" onclick="run(this, () => guestCash('${pid}','${a.member_id}'))">現金受取</button>` : ''}` : ''}</div>`).join('') || '<div class="empty">まだいません</div>'}
-        ${p.status === 'scheduled' ? `<div style="padding:8px 16px 14px"><button class="btn ghost" style="margin:0" onclick="openGuest('${pid}')">助っ人を追加</button></div>` : '<div style="height:8px"></div>'}</div>
+        ${guests.map(a => `<div class="row"><div class="l"><div class="t">${esc(a.name)}</div><div class="s">${esc(a.brought_by || '')} が登録</div></div>${a.paid === true ? '<span class="pill ok">支払い済み</span>' : a.paid === false ? `<span class="pill warn">未払い</span>${isStaff() ? `<button class="btn sm dark" onclick="run(this, () => guestCash('${pid}','${a.member_id}'))">現金受取</button>` : ''}` : ''}${canEditGuest(a) ? `<button class="btn sm ghost" style="margin-left:6px" onclick="openGuestEdit('${pid}','${a.member_id}')">編集</button>` : ''}</div>`).join('') || '<div class="empty">まだいません</div>'}
+        ${p.status !== 'scheduled' ? '<div style="height:8px"></div>' : guestFull
+          ? `<div class="hint" style="padding:8px 16px 14px">定員（${state.capacity}人）に達しているため助っ人は追加できません</div>`
+          : `<div style="padding:8px 16px 14px"><button class="btn ghost" style="margin:0" onclick="openGuest('${pid}')">助っ人を追加</button></div>`}</div>
       ${isStaff() ? `<button class="btn dark" onclick="openConfirm('${pid}')">${p.status === 'confirmed' ? '出席を修正する' : '出席を確定する'}</button><button class="btn ghost" onclick="openEditPractice('${pid}')">練習日を編集</button>` : ''}`);
   } catch (e) { openModal(`<div class="empty">読み込めませんでした: ${esc(e.message)}</div>`); }
 }
@@ -532,6 +541,29 @@ async function openPractice(pid) {
 async function guestCash(pid, gid) {
   await api('staff_guest_cash', { practice_id: pid, member_id: gid });
   toast('現金を受け取ったと記録しました'); openPractice(pid);
+}
+
+let guestCache = {};
+function openGuestEdit(pid, gid) {
+  const a = guestCache[gid]; if (!a) return;
+  openModal(`<h3>助っ人を編集</h3><div class="muted">${esc(a.brought_by || '')} が登録</div>
+    <label>名前</label><input type="text" id="ge-name" value="${esc(a.name)}">
+    <button class="btn" onclick="run(this, () => saveGuestEdit('${pid}','${gid}'))">名前を保存</button>
+    <button class="btn ghost" style="color:var(--warn)" onclick="run(this, () => removeGuest('${pid}','${gid}'))">この練習から外す</button>
+    <div class="hint">外すと、この助っ人の分として登録した支払い（現金・PayPay申告・付け替え）も一緒に取り消されます</div>
+    <button class="btn ghost" onclick="openPractice('${pid}')">戻る</button>`);
+}
+async function saveGuestEdit(pid, gid) {
+  const name = document.getElementById('ge-name').value.trim();
+  if (!name) { toast('名前を入れてください'); return; }
+  await api('guest_update', { practice_id: pid, member_id: gid, name });
+  state.members = []; toast('名前を修正しました'); openPractice(pid);
+}
+async function removeGuest(pid, gid) {
+  const a = guestCache[gid];
+  if (!confirm(`${a ? a.name : '助っ人'} をこの練習から外しますか？`)) return;
+  await api('guest_remove', { practice_id: pid, member_id: gid });
+  state.members = []; toast('外しました'); await loadMe(); openPractice(pid);
 }
 
 function openGuest(pid) {
@@ -553,7 +585,11 @@ async function submitGuest(pid) {
   const pay = document.querySelector('#g-pay .opt.on').dataset.v;
   if (!name) { toast('名前を入れてください'); return; }
   try { await api('guest', { name, practice_id: pid, payment: pay }); }
-  catch (e) { if (e.message === 'full') { toast(`定員（${state.capacity}人）に達しているため追加できません`); return; } throw e; }
+  catch (e) {
+    if (e.message === 'full') { toast(`定員（${state.capacity}人）に達しているため追加できません`); await loadMe(); openPractice(pid); return; }
+    if (e.message === 'already') { toast('その助っ人はすでに登録されています'); return; }
+    throw e;
+  }
   state.members = []; toast('登録しました'); await loadMe(); openPractice(pid);
 }
 
