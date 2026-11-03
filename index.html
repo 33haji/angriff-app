@@ -17,6 +17,7 @@
     --bg:#F6F7F9; --card:#FFFFFF; --ink:#111827; --muted:#6B7280; --faint:#9CA3AF; --line:#E5E7EB;
     --accent:#F4511E; --accent-soft:#FFEDE6; --accent-ink:#9A3412; --season-band:linear-gradient(#FFEDE6, #F6F7F9); --amber:#F59E0B; --amber-soft:#FEF3C7;
     --ok:#16A34A; --ok-soft:#E7F6EC; --warn:#DC2626; --warn-soft:#FDECEC; --info:#2563EB; --info-soft:#E8F0FE;
+    --ev:#7C3AED; --ev-soft:#EDE9FE; --ev-ink:#5B21B6;
     --r:16px; --r-sm:12px;
   }
   * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
@@ -47,6 +48,9 @@
   .banner { display:flex; align-items:center; gap:12px; padding:14px 16px; border-radius:var(--r); margin:12px 0; }
   .banner.ok { background:var(--ok-soft); color:#14532D; }
   .banner.warn { background:var(--warn-soft); color:#7F1D1D; }
+  .banner.ev { background:var(--ev-soft); color:var(--ev-ink); border:none; width:100%; text-align:left; font:inherit; }
+  .banner.ev .ic { background:#fff; font-size:16px; }
+  .banner.ev .chev { color:var(--ev); font-size:18px; }
   .banner .ic { width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex:none; background:#fff; font-weight:800; }
   .banner .t { font-weight:700; }
   .banner .s { font-size:13px; opacity:.85; }
@@ -85,6 +89,13 @@
   .cal .d.has.maybe { background:var(--amber-soft); color:#92400E; }
   .cal .d.has.no { background:#E0E7FF; color:#3730A3; }
   .cal .d.has.done { background:#E5E7EB; color:#6B7280; }
+  .cal .d.has.ev { background:var(--ev-soft); color:var(--ev-ink); }
+  .cal .d.has.ev.mine { background:var(--ev); color:#fff; }
+  .cal .d.has.ev.maybe { background:var(--amber-soft); color:#92400E; }
+  .cal .d.has.ev.no { background:#E0E7FF; color:#3730A3; }
+  .cal .d.has.ev.done { background:#E5E7EB; color:#6B7280; }
+  .cal .d { position:relative; }
+  .cal .d.evdot::after { content:''; position:absolute; right:1px; top:1px; width:8px; height:8px; border-radius:50%; background:var(--ev); border:1.5px solid #fff; }
   .legend { display:flex; flex-wrap:wrap; gap:12px; padding:0 16px 12px; font-size:12px; color:var(--muted); }
   .season-band { position:absolute; left:0; right:0; top:0; height:150px; background:var(--season-band); z-index:-1; }
   body { position:relative; }
@@ -100,6 +111,10 @@
   .datebox { width:46px; flex:none; text-align:center; background:var(--bg); border-radius:10px; padding:6px 0; line-height:1.15; }
   .datebox b { display:block; font-size:18px; }
   .datebox small { font-size:11px; color:var(--muted); }
+  .datebox.ev { background:var(--ev-soft); color:var(--ev-ink); } .datebox.ev small { color:var(--ev-ink); opacity:.8; }
+  .pill.ev { background:var(--ev-soft); color:var(--ev-ink); }
+  .seg button.on-yes.ev { background:var(--ev); border-color:var(--ev); }
+  .card.evcard { border-left:4px solid var(--ev); }
   .pill { display:inline-block; font-size:12px; padding:2px 9px; border-radius:999px; background:var(--bg); color:var(--muted); font-weight:600; white-space:nowrap; }
   .pill.yes { background:var(--accent); color:#fff; } .pill.maybe { background:#D97706; color:#fff; } .pill.no { background:#3730A3; color:#fff; }
   .pill.ok { background:var(--ok-soft); color:#15803D; } .pill.warn { background:var(--warn-soft); color:#B91C1C; } .pill.info { background:var(--info-soft); color:#1D4ED8; } .pill.acc { background:var(--accent-soft); color:#C2410C; } .pill.amber { background:var(--amber-soft); color:#92400E; } .pill.ink { background:var(--ink); color:#fff; }
@@ -172,7 +187,7 @@
         <button onclick="moveMonth(1)">›</button>
       </div>
       <div class="cal" id="cal"></div>
-      <div class="legend"><span><i style="background:var(--accent)"></i>参加</span><span><i style="background:var(--amber-soft)"></i>未定</span><span><i style="background:#E0E7FF"></i>欠席</span><span><i style="background:var(--accent-soft)"></i>練習日</span><span><i style="background:#E5E7EB"></i>開催済み</span></div>
+      <div class="legend"><span><i style="background:var(--accent)"></i>参加</span><span><i style="background:var(--amber-soft)"></i>未定</span><span><i style="background:#E0E7FF"></i>欠席</span><span><i style="background:var(--accent-soft)"></i>練習日</span><span><i style="background:var(--ev-soft);box-shadow:inset 0 0 0 1px var(--ev)"></i>イベント</span><span><i style="background:#E5E7EB"></i>開催済み</span></div>
       <div style="padding:0 16px 16px"><button class="btn" style="margin:0" onclick="openBulk()">出欠をまとめて回答</button></div>
     </div>
     <div class="card tight" id="month-list"><div class="ph" style="min-height:120px"><span class="spin"></span></div></div>
@@ -235,6 +250,12 @@
       <div id="np-rows"></div>
       <button class="btn ghost" onclick="addPracticeRow()">＋ 日程を追加</button>
       <button class="btn dark" onclick="run(this, createPractices)">まとめて登録する</button>
+    </div>
+    <div class="card admin-only evcard">
+      <h2>🎉 イベントを追加</h2>
+      <div class="muted">BBQや忘年会など。練習と同じように出欠を集められます。費用を入れると、出席を確定したときに練習費と同じ仕組みで請求されます。</div>
+      <div id="ne-form"></div>
+      <button class="btn dark" onclick="run(this, createEvent)">イベントを登録する</button>
     </div>
     <div class="card">
       <h2>グループへのお知らせ</h2>
@@ -348,6 +369,14 @@ function todayStr() { return ymd(new Date()); }
 function openModal(html) { document.getElementById('modal-body').innerHTML = html; document.getElementById('modal').classList.remove('hidden'); }
 function closeModal() { document.getElementById('modal').classList.add('hidden'); }
 function practiceById(id) { return state.practices.find(p => p.practice_id === id); }
+const isEvent = p => !!p && p.kind === 'event';
+/** 一覧・支払いでの呼び名: 練習は日付、イベントは名前 */
+function schedLabel(p) { return isEvent(p) ? `${fmtMD(p.date)} ${p.name}` : fmtMD(p.date); }
+/** 'YYYY-MM-DD HH:MM' → '12/13（土）20:00' */
+function fmtDeadline(s) { if (!s) return ''; const [d, t] = s.split(' '); return `${fmtMD(d)} ${t || ''}`.trim(); }
+function deadlineMs(p) { if (!p || !p.deadline) return null; const [d, t] = p.deadline.split(' '); const [y, m, dd] = d.split('-').map(Number); const [hh, mm] = (t || '23:59').split(':').map(Number); return new Date(y, m - 1, dd, hh, mm).getTime(); }
+/** 出欠の締切を過ぎているか（サーバーの判定に加えて、キャッシュ表示中でも時計で判定する） */
+function isClosed(p) { if (!isEvent(p)) return false; if (p.closed) return true; const ms = deadlineMs(p); return ms !== null && ms < Date.now(); }
 
 async function main() {
   // 前回の内容をすぐ表示して、裏で最新を取りに行く（体感の待ち時間を減らす）
@@ -414,13 +443,17 @@ function applyMe(d) {
 // ---------- 出欠 3択 ----------
 const ATT = { will_attend: { mk: '◯', lb: '参加', cls: 'on-yes' }, undecided: { mk: '△', lb: '未定', cls: 'on-maybe' }, absent: { mk: '×', lb: '欠席', cls: 'on-no' } };
 function seg3(pid, mine, after) {
-  const p = practiceById(pid), full = p && isFull(p);
-  return `<div class="seg">${Object.entries(ATT).map(([k, v]) => `<button class="${mine === k ? v.cls : ''}" ${full && k === 'will_attend' ? 'disabled style="opacity:.4"' : ''} onclick="run(this, () => attend('${pid}','${k}','${after || ''}'))"><span class="mk">${v.mk}</span><span class="lb">${v.lb}</span></button>`).join('')}</div>
-    ${full ? `<div class="hint">定員（${state.capacity}人）に達しているため「参加」にできません</div>` : ''}`;
+  const p = practiceById(pid), full = p && !isEvent(p) && isFull(p), closed = isClosed(p), ev = isEvent(p);
+  return `<div class="seg">${Object.entries(ATT).map(([k, v]) => `<button class="${mine === k ? v.cls + (ev ? ' ev' : '') : ''}" ${(full && k === 'will_attend') || closed ? 'disabled style="opacity:.4"' : ''} onclick="run(this, () => attend('${pid}','${k}','${after || ''}'))"><span class="mk">${v.mk}</span><span class="lb">${v.lb}</span></button>`).join('')}</div>
+    ${closed ? `<div class="hint">出欠の締切（${fmtDeadline(p.deadline)}）を過ぎたため変更できません。変更したい場合は管理者に連絡してください</div>` : full ? `<div class="hint">定員（${state.capacity}人）に達しているため「参加」にできません</div>` : ''}`;
 }
 async function attend(pid, status, after) {
   try { await api('attend', { practice_id: pid, status }); }
-  catch (e) { if (e.message === 'full') { toast(`定員（${state.capacity}人）に達しています`); await loadMe(); return; } throw e; }
+  catch (e) {
+    if (e.message === 'full') { toast(`定員（${state.capacity}人）に達しています`); await loadMe(); return; }
+    if (e.message === 'closed') { toast('出欠の締切を過ぎています'); await loadMe(); return; }
+    throw e;
+  }
   toast(`${ATT[status].lb}で登録しました`);
   await loadMe();
   if (after === 'detail') openPractice(pid);
@@ -428,10 +461,18 @@ async function attend(pid, status, after) {
 function countText(p) { return `参加 ${p.count_attend}人・未定 ${p.count_undecided}人`; }
 
 // ---------- 練習 ----------
+/** 締切が7日以内で、自分が未回答か未定のイベント → 画面上部で呼びかける */
+function eventBanners() {
+  const now = Date.now();
+  return state.practices.filter(p => isEvent(p) && p.status === 'scheduled' && p.deadline && !isClosed(p) && (deadlineMs(p) - now) <= 7 * 864e5 && (!p.my_status || p.my_status === 'undecided'))
+    .sort((a, b) => deadlineMs(a) - deadlineMs(b))
+    .map(p => { const days = Math.ceil((deadlineMs(p) - now) / 864e5);
+      return `<button class="banner ev" onclick="openPractice('${p.practice_id}')"><div class="ic">🎉</div><div class="l" style="flex:1;min-width:0"><div class="t">${esc(p.name)} の出欠${p.my_status === 'undecided' ? 'が「未定」のままです' : 'がまだです'}</div><div class="s">締切 ${fmtDeadline(p.deadline)}（${days <= 0 ? '今日' : 'あと' + days + '日'}）・${fmtWhen(p)}</div></div><span class="chev">›</span></button>`; }).join('');
+}
 function renderHome() {
   const today = todayStr();
-  const next = state.practices.filter(p => p.date >= today && p.status === 'scheduled').sort((a, b) => a.date.localeCompare(b.date))[0];
-  document.getElementById('hero').innerHTML = next ? `
+  const next = state.practices.filter(p => !isEvent(p) && p.date >= today && p.status === 'scheduled').sort((a, b) => a.date.localeCompare(b.date))[0];
+  document.getElementById('hero').innerHTML = eventBanners() + (next ? `
     <div class="hero">
       <button class="more" onclick="openPractice('${next.practice_id}')">詳細 ›</button>
       <div class="eyebrow">次の練習</div>
@@ -440,14 +481,16 @@ function renderHome() {
       ${next.code ? `<div class="place" style="margin-top:2px">🔢 番号 ${esc(next.code)}</div>` : ''}
       <div class="meta"><span>${countText(next)}</span>${atCapacity(next) ? '<span class="pill warn">満員</span>' : ''}</div>
       ${seg3(next.practice_id, next.my_status)}
-    </div>` : `<div class="hero" style="min-height:auto"><div class="eyebrow">次の練習</div><div class="place">まだ予定が入っていません</div></div>`;
+    </div>` : `<div class="hero" style="min-height:auto"><div class="eyebrow">次の練習</div><div class="place">まだ予定が入っていません</div></div>`);
   renderCalendar();
 }
 function moveMonth(n) { calCursor.setMonth(calCursor.getMonth() + n); renderCalendar(); }
 function renderCalendar() {
   const y = calCursor.getFullYear(), m = calCursor.getMonth();
   document.getElementById('cal-title').textContent = `${y}年${m + 1}月`;
-  const byDate = {}; state.practices.forEach(p => { byDate[p.date] = p; });
+  // 同じ日に練習とイベントがあれば練習を優先して色付けし、イベントは小さな点で示す
+  const byDate = {}; state.practices.forEach(p => { const cur = byDate[p.date]; if (!cur || (isEvent(cur) && !isEvent(p))) byDate[p.date] = p; });
+  const evDates = new Set(state.practices.filter(isEvent).map(p => p.date));
   const first = new Date(y, m, 1), start = new Date(first); start.setDate(1 - first.getDay());
   const today = todayStr();
   let html = DOW.map(d => `<div class="dow">${d}</div>`).join('');
@@ -457,18 +500,21 @@ function renderCalendar() {
     const key = ymd(d), p = byDate[key];
     const mine = p && (p.my_status === 'will_attend' || p.my_status === 'attended');
     const done = p && p.status === 'confirmed';
-    const cls = ['d', d.getMonth() !== m ? 'out' : '', key === today ? 'today' : '', p ? 'has' : '',
+    const cls = ['d', d.getMonth() !== m ? 'out' : '', key === today ? 'today' : '', p ? 'has' : '', isEvent(p) ? 'ev' : '', p && !isEvent(p) && evDates.has(key) ? 'evdot' : '',
       done ? 'done' : mine ? 'mine' : p && p.my_status === 'undecided' ? 'maybe' : p && p.my_status === 'absent' ? 'no' : ''].filter(Boolean).join(' ');
     html += `<button class="${cls}" ${p ? `onclick="openPractice('${p.practice_id}')"` : 'disabled'}>${d.getDate()}</button>`;
   }
   document.getElementById('cal').innerHTML = html;
   const list = state.practices.filter(p => p.date.startsWith(`${y}-${String(m + 1).padStart(2, '0')}`)).sort((a, b) => a.date.localeCompare(b.date));
-  document.getElementById('month-list').innerHTML = `<div class="eyebrow">${m + 1}月の練習</div>` + (list.map(practiceRow).join('') || '<div class="empty">この月の練習はありません</div>') + `<div class="muted" style="padding:6px 16px 12px;font-size:11px">※参加人数には助っ人も含みます。定員は${state.capacity}人です</div>`;
+  document.getElementById('month-list').innerHTML = `<div class="eyebrow">${m + 1}月の練習${list.some(isEvent) ? '・イベント' : ''}</div>` + (list.map(practiceRow).join('') || '<div class="empty">この月の練習はありません</div>') + `<div class="muted" style="padding:6px 16px 12px;font-size:11px">※練習の参加人数には助っ人も含みます。定員は${state.capacity}人です</div>`;
 }
 function practiceRow(p) {
   const d = parseD(p.date);
   const st = p.status === 'confirmed' ? (p.my_status === 'attended' ? '<span class="pill">参加した</span>' : '<span class="pill">開催済み</span>')
     : p.my_status === 'will_attend' ? '<span class="pill yes">◯ 参加</span>' : p.my_status === 'undecided' ? '<span class="pill maybe">△ 未定</span>' : p.my_status === 'absent' ? '<span class="pill no">× 欠席</span>' : '<span class="pill">未回答</span>';
+  if (isEvent(p)) return `<button class="row" onclick="openPractice('${p.practice_id}')">
+    <div class="datebox ev"><b>${d.getDate()}</b><small>${DOW[d.getDay()]}</small></div>
+    <div class="l"><div class="t">🎉 ${esc(p.name)}</div><div class="s">${[fmtTime(p), p.place ? esc(p.place) : '', countText(p)].filter(Boolean).join('　')}${p.deadline && p.status === 'scheduled' ? `<br>${isClosed(p) ? '出欠締切済み' : '出欠締切 ' + fmtDeadline(p.deadline)}` : ''}</div></div>${st}<span class="chev">›</span></button>`;
   return `<button class="row" onclick="openPractice('${p.practice_id}')">
     <div class="datebox"><b>${d.getDate()}</b><small>${DOW[d.getDay()]}</small></div>
     <div class="l"><div class="t">${fmtTime(p) ? fmtTime(p) + '　' : ''}${esc(p.place || '場所未定')}</div><div class="s">${countText(p)}${atCapacity(p) ? '　<span class="pill warn">満員</span>' : ''}</div></div>${st}<span class="chev">›</span></button>`;
@@ -480,17 +526,17 @@ function openBulk() {
   const y = calCursor.getFullYear(), m = calCursor.getMonth();
   const list = state.practices.filter(p => p.status === 'scheduled' && p.date >= todayStr() && p.date.startsWith(`${y}-${String(m + 1).padStart(2, '0')}`)).sort((a, b) => a.date.localeCompare(b.date));
   bulkDraft = {}; list.forEach(p => { bulkDraft[p.practice_id] = p.my_status; });
-  openModal(`<h3>${m + 1}月の出欠</h3><div class="muted">選んでから「保存する」を押してください</div>
+  openModal(`<h3>${m + 1}月の出欠</h3><div class="muted">練習${list.some(isEvent) ? 'とイベント' : ''}の出欠を選んでから「保存する」を押してください</div>
     <div id="bulk-list" style="margin-top:8px">${list.map(bulkRow).join('') || '<div class="empty">この月に回答できる練習はありません</div>'}</div>
     ${list.length ? `<button class="btn" onclick="run(this, saveBulk)">保存する</button>` : ''}
     <button class="btn ghost" onclick="closeModal()">閉じる</button>`);
 }
 function bulkRow(p) {
-  const cur = bulkDraft[p.practice_id];
-  return `<div class="card" id="bulk-${p.practice_id}" style="margin:8px 0;padding:12px 14px">
-    <div style="display:flex;align-items:center;justify-content:space-between"><div><b>${fmtWhen(p)}</b><div class="muted">📍 ${esc(p.place || '場所未定')}</div></div><span class="muted">${countText(p)}</span></div>
-    <div class="seg" style="margin-top:10px">${Object.entries(ATT).map(([k, v]) => `<button class="${cur === k ? v.cls : ''}" ${isFull(p) && k === 'will_attend' ? 'disabled style="opacity:.4"' : ''} onclick="pickBulk('${p.practice_id}','${k}')"><span class="mk">${v.mk}</span><span class="lb">${v.lb}</span></button>`).join('')}</div>
-    ${isFull(p) ? `<div class="hint">定員（${state.capacity}人）に達しているため「参加」にできません</div>` : ''}
+  const cur = bulkDraft[p.practice_id], ev = isEvent(p), closed = isClosed(p), full = !ev && isFull(p);
+  return `<div class="card${ev ? ' evcard' : ''}" id="bulk-${p.practice_id}" style="margin:8px 0;padding:12px 14px">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px"><div style="min-width:0"><b>${ev ? '🎉 ' + esc(p.name) + '<br>' : ''}${fmtWhen(p)}</b><div class="muted">📍 ${esc(p.place || '場所未定')}${ev && p.deadline ? `<br>⏰ 締切 ${fmtDeadline(p.deadline)}` : ''}</div></div><span class="muted" style="flex:none;white-space:nowrap">${countText(p)}</span></div>
+    <div class="seg" style="margin-top:10px">${Object.entries(ATT).map(([k, v]) => `<button class="${cur === k ? v.cls + (ev ? ' ev' : '') : ''}" ${(full && k === 'will_attend') || closed ? 'disabled style="opacity:.4"' : ''} onclick="pickBulk('${p.practice_id}','${k}')"><span class="mk">${v.mk}</span><span class="lb">${v.lb}</span></button>`).join('')}</div>
+    ${closed ? '<div class="hint">出欠の締切を過ぎています</div>' : full ? `<div class="hint">定員（${state.capacity}人）に達しているため「参加」にできません</div>` : ''}
   </div>`;
 }
 function pickBulk(pid, status) {
@@ -501,7 +547,8 @@ async function saveBulk() {
   const items = Object.entries(bulkDraft).filter(([pid, st]) => st && st !== (practiceById(pid) || {}).my_status).map(([practice_id, status]) => ({ practice_id, status }));
   if (!items.length) { toast('変更はありません'); closeModal(); return; }
   const r = await api('attend_bulk', { items });
-  closeModal(); toast(r.skipped && r.skipped.length ? `${r.saved}件保存（${r.skipped.length}件は定員のため参加にできず）` : `${items.length}件の出欠を保存しました`); await loadMe();
+  const bad = (r.skipped || []).length + (r.closed || []).length;
+  closeModal(); toast(bad ? `${r.saved}件保存（${(r.skipped || []).length ? r.skipped.length + '件は定員のため参加にできず' : ''}${(r.skipped || []).length && (r.closed || []).length ? '、' : ''}${(r.closed || []).length ? r.closed.length + '件は締切済み' : ''}）` : `${items.length}件の出欠を保存しました`); await loadMe();
 }
 
 // ---------- 練習の詳細 ----------
@@ -519,6 +566,24 @@ async function openPractice(pid) {
     const canEditGuest = a => isStaff() || a.brought_by_id === state.me.member_id;
     guestCache = {}; guests.forEach(a => { guestCache[a.member_id] = a; });
     const names = arr => arr.map(a => `<div class="row"><div class="l"><div class="t">${esc(a.name)}</div></div></div>`).join('') || '<div class="empty">まだいません</div>';
+    if (isEvent(p)) {
+      const lp = practiceById(pid); if (lp) { lp.my_status = p.my_status; lp.closed = p.closed; lp.deadline = p.deadline; }
+      openModal(`
+        <h3><span class="pill ev" style="vertical-align:3px;margin-right:6px">イベント</span>${esc(p.name)}${p.status === 'confirmed' ? ' <span class="pill">開催済み</span>' : ''}</h3>
+        <div class="card evcard" style="margin:10px 0 0;padding:12px 14px">
+          <div style="display:flex;gap:10px;align-items:center"><span style="font-size:18px">📅</span><b>${fmtWhen(p)}</b></div>
+          ${p.place ? `<div style="display:flex;gap:10px;align-items:center;margin-top:8px"><span style="font-size:18px">📍</span><b>${esc(p.place)}</b></div>` : ''}
+          <div style="display:flex;gap:10px;align-items:center;margin-top:8px"><span style="font-size:18px">💰</span><div>${Number(p.price) ? `<b>${yen(p.price)}</b><div class="muted">出席を確定したあと、練習費と同じ方法で支払います</div>` : '<span class="muted">費用なし</span>'}</div></div>
+          ${p.deadline ? `<div style="display:flex;gap:10px;align-items:center;margin-top:8px"><span style="font-size:18px">⏰</span><div><b>出欠締切 ${fmtDeadline(p.deadline)}</b>${isClosed(p) ? ' <span class="pill warn">締切済み</span>' : ''}</div></div>` : ''}
+          ${p.note ? `<div class="muted" style="margin-top:10px;white-space:pre-wrap;padding-top:10px;border-top:1px solid var(--line)">${esc(p.note)}</div>` : ''}
+        </div>
+        ${p.status === 'scheduled' ? seg3(pid, p.my_status, 'detail') : ''}
+        <div class="card tight" style="margin-top:14px"><div class="eyebrow">${p.status === 'confirmed' ? '出席' : '◯ 参加'}（${yes.length}人）</div>${names(yes)}</div>
+        ${p.status === 'scheduled' ? `<div class="card tight"><div class="eyebrow">△ 未定（${maybe.length}人）</div>${names(maybe)}</div>` : ''}
+        ${isStaff() ? `<button class="btn dark" onclick="openConfirm('${pid}')">${p.status === 'confirmed' ? '出席を修正する' : '出席を確定する'}</button>` : ''}
+        ${state.isAdmin ? `<button class="btn ghost" onclick="openEditEvent('${pid}')">イベントを編集</button>` : ''}`);
+      return;
+    }
     openModal(`
       <h3>${fmtMD(p.date)}${p.status === 'confirmed' ? ' <span class="pill">開催済み</span>' : ''}</h3>
       <div class="card" style="margin:10px 0 0;padding:12px 14px">
@@ -602,7 +667,7 @@ async function openConfirm(pid) {
   const on = s => s === 'will_attend' || s === 'attended';
   const rowsM = state.members.filter(m => m.type === 'member').map(m => `<label class="chk"><input type="checkbox" value="${m.member_id}" ${on(st[m.member_id]) ? 'checked' : ''}><span>${esc(m.name)}${st[m.member_id] === 'undecided' ? ' <span class="pill amber">△</span>' : ''}</span></label>`).join('');
   const rowsG = guests.map(g => `<label class="chk"><input type="checkbox" value="${g.member_id}" ${g.status !== 'absent' ? 'checked' : ''}><span>${esc(g.name)} <span class="pill">助っ人</span></span></label>`).join('');
-  openModal(`<h3>出席を確定</h3><div class="muted">${fmtMD(d.practice.date)}。来た人にチェック。保存すると請求が確定します。</div>
+  openModal(`<h3>出席を確定</h3><div class="muted">${isEvent(d.practice) ? esc(d.practice.name) + '（' + fmtMD(d.practice.date) + '）' : fmtMD(d.practice.date)}。来た人にチェック。保存すると請求が確定します。</div>
     <div class="sticky-count" style="margin-top:10px"><span class="muted">チェック中</span><span><b id="confirm-count">0</b> 人</span></div>
     <div class="card tight" style="margin-top:12px;padding:0 16px"><div id="confirm-list" oninput="updateConfirmCount()">${rowsM}${rowsG}</div></div>
     <button class="btn dark" onclick="run(this, () => submitConfirm('${pid}'))">保存する</button>`);
@@ -623,7 +688,7 @@ function renderPayStatus() {
   const u = state.unpaid;
   document.getElementById('pay-status').innerHTML = state.me.exempt ? '' :
     !u.length ? `<div class="banner ok"><div class="ic">✓</div><div><div class="t">未払いはありません</div></div></div>` :
-    `<div class="banner warn"><div class="ic">!</div><div><div class="t">未払いがあります</div><div class="s">${esc(u.map(x => fmtMD(x.date)).join('、'))} の分</div>
+    `<div class="banner warn"><div class="ic">!</div><div><div class="t">未払いがあります</div><div class="s">${esc(u.map(x => x.kind === 'event' ? x.name : fmtMD(x.date)).join('、'))} の分</div>
       <div class="s" style="margin-top:6px;opacity:1">💡 PayPayで払った分は、反映まで最大1週間ほどかかります。送金済みなら、未払いと表示されていても大丈夫です。</div></div></div>`;
 }
 function copyPayPay() {
@@ -638,13 +703,13 @@ function copyPayPay() {
 function practiceSelect(id, mode) {
   const today = todayStr();
   const near = state.practices.filter(p => p.date >= today && (parseD(p.date) - parseD(today)) / 864e5 <= 14).sort((a, b) => a.date.localeCompare(b.date));
-  const unpaid = state.unpaid.map(u => ({ practice_id: u.practice_id, date: u.date, price: u.price, tag: '未払い' }));
+  const unpaid = state.unpaid.map(u => ({ practice_id: u.practice_id, kind: u.kind, name: u.name, date: u.date, price: u.price, tag: '未払い' }));
   const past = state.practices.filter(p => p.date <= today).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 8);
   const order = mode === 'late' ? [...unpaid, ...past] : near;
   const seen = new Set(), opts = [];
   order.forEach(p => { if (seen.has(p.practice_id)) return; seen.add(p.practice_id);
     const tag = p.tag || (state.unpaid.some(u => u.practice_id === p.practice_id) ? '未払い' : '');
-    opts.push(`<option value="${p.practice_id}" data-price="${p.price}">${fmtWhen(p)}${tag ? `（${tag}）` : ''}</option>`); });
+    opts.push(`<option value="${p.practice_id}" data-price="${p.price}">${isEvent(p) ? esc(p.name) + ' ' + fmtMD(p.date) : fmtWhen(p)}${tag ? `（${tag}）` : ''}</option>`); });
   opts.push(`<option value="" data-price="">複数回分をまとめて・その他</option>`);
   return `<select id="${id}" onchange="syncAmount('${id}')">${opts.join('')}</select>`;
 }
@@ -654,14 +719,14 @@ function syncAmount(selId) {
 }
 function openPayPay(mode) {
   openModal(`<h3>PayPayで払った</h3><div class="muted">払い忘れていた分を送ったら登録してください。取引履歴とも自動で突き合わせます。</div>
-    <label>どの練習の分？</label>${practiceSelect('m-pid', mode)}
+    <label>どの練習・イベントの分？</label>${practiceSelect('m-pid', mode)}
     <label>送った金額</label><input type="number" id="m-amount" inputmode="numeric" value="500">
     <button class="btn" onclick="run(this, () => submitSimple('paypay'))">登録する</button>`);
   syncAmount('m-pid');
 }
 function openCash(mode) {
   openModal(`<h3>現金で払った</h3><div class="muted">袋に入れた金額を登録してください。</div>
-    <label>どの練習の分？</label>${practiceSelect('m-pid', mode)}
+    <label>どの練習・イベントの分？</label>${practiceSelect('m-pid', mode)}
     <label>入れた金額</label><input type="number" id="m-amount" inputmode="numeric" value="500">
     <button class="btn" onclick="run(this, () => submitSimple('cash'))">登録する</button>`);
   syncAmount('m-pid');
@@ -682,7 +747,7 @@ async function openTransfer() {
   const opts = await memberOptions(true);
   openModal(`<h3>誰かの分も一緒に払った</h3><div class="muted">自分の分とは別に、他の人の分も払ったときに登録します。</div>
     <label>誰の分を払った？</label><select id="m-target">${opts}</select>
-    <label>どの練習の分？</label>${practiceSelect('m-pid', 'now')}
+    <label>どの練習・イベントの分？</label>${practiceSelect('m-pid', 'now')}
     <label>その人の分の金額だけ（自分の分は含めない）</label><input type="number" id="m-amount" inputmode="numeric" value="500">
     <div class="hint">例：自分と田中さんの2人分1,000円を送った → 田中さんを選んで 500</div>
     <button class="btn" onclick="run(this, () => submitPair('transfer','target_member_id','m-target'))">登録する</button>`);
@@ -693,7 +758,7 @@ async function openClaim() {
   const opts = await memberOptions(false);
   openModal(`<h3>誰かに払ってもらった</h3><div class="muted">自分の分を他の人が払ってくれたときに登録します。</div>
     <label>誰に払ってもらった？</label><select id="m-payer">${opts}</select>
-    <label>どの練習の分？</label>${practiceSelect('m-pid', 'now')}
+    <label>どの練習・イベントの分？</label>${practiceSelect('m-pid', 'now')}
     <label>自分の分の金額</label><input type="number" id="m-amount" inputmode="numeric" value="500">
     <button class="btn" onclick="run(this, () => submitPair('claim','payer_member_id','m-payer'))">登録する</button>`);
   syncAmount('m-pid');
@@ -708,7 +773,7 @@ async function loadHistory() {
   const d = await api('history');
   const cls = s => s === '未払い' || s === '一部未払い' ? 'warn' : s === '未連携' ? 'amber' : s === '免除' ? '' : 'ok';
   document.getElementById('hist-pay').innerHTML = (d.practices || []).slice(0, 30).map(r => `
-    <div class="row"><div class="l"><div class="t">${fmtMD(r.date)}</div><div class="s">${yen(r.price)}</div></div><span class="pill ${cls(r.status)}">${r.status}</span></div>`).join('') || '<div class="empty">まだありません</div>';
+    <div class="row"><div class="l"><div class="t">${r.kind === 'event' ? '🎉 ' + esc(r.name) + ' ' : ''}${fmtMD(r.date)}</div><div class="s">${yen(r.price)}</div></div><span class="pill ${cls(r.status)}">${r.status}</span></div>`).join('') || '<div class="empty">まだありません</div>';
   const others = d.forOthers || [];
   document.getElementById('hist-others-card').classList.toggle('hidden', !others.length);
   document.getElementById('hist-others').innerHTML = others.slice(0, 20).map(o => `
@@ -716,7 +781,8 @@ async function loadHistory() {
 }
 
 // ---------- グループへの送信（管理者が自分のLINEから送る） ----------
-const SEND_TITLES = { tomorrow: '明日の練習のお知らせ', unpaid: '未納のお知らせ', added: '練習日の追加', updated: '練習日の変更', deleted: '練習の中止' };
+const SEND_TITLES = { tomorrow: '明日の練習のお知らせ', unpaid: '未納のお知らせ', added: '練習日の追加', updated: '練習日の変更', deleted: '練習の中止',
+  event_added: 'イベントのお知らせ', event_updated: 'イベントの変更', event_deleted: 'イベントの中止', event_deadline: 'イベント出欠締切のリマインド' };
 async function openSend(kind, opts = {}) {
   openModal(SPIN);
   if (kind === 'unpaid') return openSendUnpaid();
@@ -819,8 +885,8 @@ function renderAdminPractices() {
   const today = todayStr();
   const ps = state.practices.filter(p => p.date <= today || p.status === 'scheduled').sort((a, b) => b.date.localeCompare(a.date)).slice(0, 12);
   document.getElementById('admin-practices').innerHTML = ps.map(p => `
-    <div class="row"><div class="l"><div class="t">${fmtWhen(p)}</div><div class="s">${esc(p.place || '')} ・ ${countText(p)}</div></div>
-    <button class="btn sm ghost" onclick="openEditPractice('${p.practice_id}')">編集</button>
+    <div class="row"><div class="l"><div class="t">${isEvent(p) ? '🎉 ' + esc(p.name) + ' ' : ''}${fmtWhen(p)}</div><div class="s">${esc(p.place || '')} ・ ${countText(p)}</div></div>
+    ${isEvent(p) ? (state.isAdmin ? `<button class="btn sm ghost" onclick="openEditEvent('${p.practice_id}')">編集</button>` : '') : `<button class="btn sm ghost" onclick="openEditPractice('${p.practice_id}')">編集</button>`}
     <button class="btn sm ${p.status === 'confirmed' ? 'ghost' : 'dark'}" onclick="openConfirm('${p.practice_id}')">${p.status === 'confirmed' ? '修正' : '確定'}</button></div>`).join('') || '<div class="empty">練習がありません</div>';
 }
 
@@ -887,6 +953,51 @@ async function createPractices() {
   toast(`${r.practices.length}件追加しました`); resetPracticeRows(); await loadMe(); renderAdminPractices();
   afterPracticeChange('added', r.text);
 }
+// ---------- イベント（管理者のみ） ----------
+function eventFields(prefix, d) {
+  return `<label>イベント名 <span style="color:var(--warn)">*</span></label><input type="text" id="${prefix}-name" value="${esc(d.name || '')}" placeholder="例：忘年会">
+    <label>日付 <span style="color:var(--warn)">*</span></label><input type="date" id="${prefix}-date" value="${d.date || ''}">
+    <div class="fields"><div><label>開始</label><input type="time" id="${prefix}-start" value="${d.start || ''}"></div><div><label>終了</label><input type="time" id="${prefix}-end" value="${d.end || ''}"></div></div>
+    <label>場所</label><input type="text" id="${prefix}-place" value="${esc(d.place || '')}" placeholder="例：○○居酒屋 新宿店">
+    <label>費用（1人あたり）</label><input type="number" id="${prefix}-price" inputmode="numeric" value="${d.price || ''}" placeholder="例：4000（なしなら空欄）">
+    <label>備考</label><textarea id="${prefix}-note" style="min-height:80px" placeholder="例：飲み放題込み。集合は18:45に店の前">${esc(d.note || '')}</textarea>
+    <label>出欠の締切</label><input type="datetime-local" id="${prefix}-deadline" value="${d.deadline ? d.deadline.replace(' ', 'T') : ''}">
+    <div class="hint">締切を入れると、2日前の20時にリマインドの文面が届き、締切後は本人が出欠を変えられなくなります</div>`;
+}
+function readEventForm(prefix) {
+  const g = id => document.getElementById(`${prefix}-${id}`).value;
+  const b = { name: g('name').trim(), date: g('date'), start: g('start'), end: g('end'), place: g('place').trim(), price: g('price'), note: g('note').trim(), deadline: g('deadline') };
+  if (!b.name) { toast('イベント名を入れてください'); return null; }
+  if (!b.date) { toast('日付を選んでください'); return null; }
+  if (b.deadline && b.deadline.replace('T', ' ') > `${b.date} ${b.start || '23:59'}`) { toast('締切はイベントの開始より前にしてください'); return null; }
+  return b;
+}
+function resetEventForm() { document.getElementById('ne-form').innerHTML = eventFields('ne', { start: '19:00' }); }
+async function createEvent() {
+  const b = readEventForm('ne'); if (!b) return;
+  const r = await api('admin_create_event', b);
+  toast('イベントを登録しました'); resetEventForm(); await loadMe(); renderAdminPractices();
+  afterPracticeChange('event_added', r.text, r.event.practice_id);
+}
+function openEditEvent(pid) {
+  const p = practiceById(pid); if (!p) return;
+  openModal(`<h3>イベントを編集</h3>${eventFields('ee', p)}
+    <button class="btn dark" onclick="run(this, () => saveEditEvent('${pid}'))">保存する</button>
+    <button class="btn ghost" style="color:var(--warn)" onclick="run(this, () => deleteEvent('${pid}'))">このイベントを削除</button>`);
+}
+async function saveEditEvent(pid) {
+  const b = readEventForm('ee'); if (!b) return;
+  const r = await api('admin_update_event', { event_id: pid, ...b });
+  closeModal(); toast('保存しました'); await loadMe(); if (state.view === 'admin') renderAdminPractices();
+  afterPracticeChange('event_updated', r.text, pid);
+}
+async function deleteEvent(pid) {
+  const p = practiceById(pid);
+  if (!confirm(`${p.name}（${fmtMD(p.date)}）を削除します。出欠の記録も消えます。よろしいですか？`)) return;
+  const r = await api('admin_delete_event', { event_id: pid });
+  closeModal(); toast('削除しました'); await loadMe(); if (state.view === 'admin') renderAdminPractices();
+  afterPracticeChange('event_deleted', r.text);
+}
 async function cashCount() {
   const amount = Number(document.getElementById('cash-count').value);
   if (!amount) { toast('金額を入れてください'); return; }
@@ -902,6 +1013,7 @@ async function show(v) {
   document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.v === v));
   window.scrollTo(0, 0);
   if (v === 'admin' && !document.querySelector('#np-rows .np-row')) addPracticeRow();
+  if (v === 'admin' && !document.getElementById('ne-name')) resetEventForm();
   try { if (v === 'pay') await loadHistory(); if (v === 'admin') await loadAdmin(); } catch (e) { toast('読み込み失敗: ' + e.message); }
 }
 main();
