@@ -518,7 +518,7 @@ function renderCalendar() {
   }
   document.getElementById('cal').innerHTML = html;
   const list = state.practices.filter(p => p.date.startsWith(`${y}-${String(m + 1).padStart(2, '0')}`)).sort((a, b) => a.date.localeCompare(b.date));
-  document.getElementById('month-list').innerHTML = `<div class="eyebrow">${m + 1}月の練習${list.some(isEvent) ? '・イベント' : ''}</div>` + (list.map(practiceRow).join('') || '<div class="empty">この月の練習はありません</div>') + `<div class="muted" style="padding:6px 16px 12px;font-size:11px">※練習の参加人数には助っ人も含みます。定員は${state.capacity}人です</div>`;
+  document.getElementById('month-list').innerHTML = `<div class="cal-head" style="padding-bottom:4px"><button onclick="moveMonth(-1)" aria-label="前の月">‹</button><div class="m" style="font-size:14px">${m + 1}月の練習${list.some(isEvent) ? '・イベント' : ''}</div><button onclick="moveMonth(1)" aria-label="次の月">›</button></div>` + (list.map(practiceRow).join('') || '<div class="empty">この月の練習はありません</div>') + `<div class="muted" style="padding:6px 16px 12px;font-size:11px">※練習の参加人数には助っ人も含みます。定員は${state.capacity}人です</div>`;
 }
 function practiceRow(p) {
   const d = parseD(p.date);
