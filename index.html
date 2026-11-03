@@ -113,7 +113,13 @@
   .datebox { width:46px; flex:none; text-align:center; background:var(--bg); border-radius:10px; padding:6px 0; line-height:1.15; }
   .datebox b { display:block; font-size:18px; }
   .datebox small { font-size:11px; color:var(--muted); }
-  .datebox.ev { background:var(--ev-soft); color:var(--ev-ink); } .datebox.ev small { color:var(--ev-ink); opacity:.8; }
+  .row.ev { background:var(--ev-soft); }
+  .row.ev + .row, .row + .row.ev { border-top-color:#DDD6FE; }
+  .row.ev .datebox { background:#fff; color:var(--ev-ink); } .row.ev .datebox small { color:var(--ev-ink); }
+  .row.ev .t { color:var(--ev-ink); }
+  .dl { display:inline-flex; align-items:center; gap:4px; margin-top:6px; padding:3px 10px; border-radius:999px; background:var(--ev); color:#fff; font-size:12px; font-weight:700; white-space:nowrap; }
+  .dl.soon { background:var(--warn); }
+  .dl.closed { background:#E5E7EB; color:var(--muted); }
   .pill.ev { background:var(--ev-soft); color:var(--ev-ink); }
   .seg button.on-yes.ev { background:var(--ev); border-color:var(--ev); }
   .card.evcard { border-left:4px solid var(--ev); }
@@ -130,7 +136,7 @@
   .hint { font-size:12px; color:var(--muted); margin-top:6px; }
   input:not([type=checkbox]), select { display:block; width:100%; min-width:0; max-width:100%; padding:12px; font-size:16px; border:1px solid var(--line); border-radius:var(--r-sm); background:#fff; -webkit-appearance:none; appearance:none; }
   input[type=date], input[type=time] { min-height:48px; }
-  textarea { display:block; width:100%; min-height:220px; padding:12px; font-size:15px; line-height:1.6; border:1px solid var(--line); border-radius:var(--r-sm); background:#fff; font-family:inherit; resize:vertical; }
+  textarea { display:block; width:100%; min-height:220px; padding:12px; font-size:16px; line-height:1.6; border:1px solid var(--line); border-radius:var(--r-sm); background:#fff; font-family:inherit; resize:vertical; }
   .fields { display:flex; gap:12px; } .fields > div { flex:1; min-width:0; }
   .np-row { border:1px solid var(--line); border-radius:var(--r-sm); padding:4px 12px 12px; margin-top:12px; position:relative; }
   .np-row .rm { position:absolute; top:8px; right:8px; background:none; border:none; color:var(--faint); font-size:18px; padding:4px 8px; }
@@ -518,9 +524,17 @@ function practiceRow(p) {
   const d = parseD(p.date);
   const st = p.status === 'confirmed' ? (p.my_status === 'attended' ? '<span class="pill">参加した</span>' : '<span class="pill">開催済み</span>')
     : p.my_status === 'will_attend' ? '<span class="pill yes">◯ 参加</span>' : p.my_status === 'undecided' ? '<span class="pill maybe">△ 未定</span>' : p.my_status === 'absent' ? '<span class="pill no">× 欠席</span>' : '<span class="pill">未回答</span>';
-  if (isEvent(p)) return `<button class="row" onclick="openPractice('${p.practice_id}')">
-    <div class="datebox ev"><b>${d.getDate()}</b><small>${DOW[d.getDay()]}</small></div>
-    <div class="l"><div class="t">🎉 ${esc(p.name)}</div><div class="s">${[fmtTime(p), p.place ? esc(p.place) : '', countText(p)].filter(Boolean).join('　')}${p.deadline && p.status === 'scheduled' ? `<br>${isClosed(p) ? '出欠締切済み' : '出欠締切 ' + fmtDeadline(p.deadline)}` : ''}</div></div>${st}<span class="chev">›</span></button>`;
+  if (isEvent(p)) {
+    let dl = '';
+    if (p.deadline && p.status === 'scheduled') {
+      const left = deadlineMs(p) - Date.now();
+      dl = isClosed(p) ? '<span class="dl closed">出欠締切済み</span>'
+        : `<span class="dl${left <= 3 * 864e5 ? ' soon' : ''}">⏰ 出欠締切 ${fmtDeadline(p.deadline)}</span>`;
+    }
+    return `<button class="row ev" onclick="openPractice('${p.practice_id}')">
+    <div class="datebox"><b>${d.getDate()}</b><small>${DOW[d.getDay()]}</small></div>
+    <div class="l"><div class="t">${esc(p.name)}</div><div class="s">${[fmtTime(p), p.place ? esc(p.place) : ''].filter(Boolean).join('　')}</div><div class="s">${countText(p)}</div>${dl}</div>${st}<span class="chev">›</span></button>`;
+  }
   return `<button class="row" onclick="openPractice('${p.practice_id}')">
     <div class="datebox"><b>${d.getDate()}</b><small>${DOW[d.getDay()]}</small></div>
     <div class="l"><div class="t">${fmtTime(p) ? fmtTime(p) + '　' : ''}${esc(p.place || '場所未定')}</div><div class="s">${countText(p)}${atCapacity(p) ? '　<span class="pill warn">定員</span>' : ''}</div></div>${st}<span class="chev">›</span></button>`;
