@@ -255,8 +255,13 @@
       <div class="eyebrow">払い忘れの支払い</div>
       <div class="method">
         <div class="ic" style="background:#FDE7E2">📱</div>
-        <div class="b"><div class="t">PayPayで払った</div><div class="s">あとから送った場合は、ここで登録すると未払いがすぐ消えます。</div>
+        <div class="b"><div class="t">PayPayで払った</div><div class="s">あとから送った場合は、ここで登録すると未払いがすぐ消えます。<br>送金先は <b id="pp-payee">代表</b>（下のPayPay ID）です。</div>
           <div class="act"><button class="copy" onclick="copyPayPay()"><span style="font-family:inherit;font-weight:600;color:var(--muted)">PayPay ID：</span><span id="pp-id">—</span></button><button class="btn sm ghost" onclick="openPayPay('late')">登録する</button></div></div>
+      </div>
+      <div class="method hidden" id="sub-pp-method">
+        <div class="ic" style="background:#FEF3C7">↪️</div>
+        <div class="b"><div class="t">誤って"<span class="sub-name">サブ管理者</span>"に送ってしまった</div><div class="s">送り先を間違えた場合はここで登録してください。<span class="sub-name">サブ管理者</span>が届いているか確認します。</div>
+          <div class="act"><button class="btn sm ghost" onclick="openSubPayPay()">登録する</button></div></div>
       </div>
       <div class="method">
         <div class="ic" style="background:#E7F6EC">👛</div>
@@ -275,7 +280,7 @@
     <div class="subtabs" id="admin-subtabs">
       <button data-s="sched" class="on" onclick="showAdminSec('sched')">📅 日程<span class="cnt hidden" id="cnt-sched"></span></button>
       <button data-s="money" class="admin-only" onclick="showAdminSec('money')">💴 集金<span class="cnt hidden" id="cnt-money"></span></button>
-      <button data-s="ledger" onclick="showAdminSec('ledger')">📒 会計</button>
+      <button data-s="ledger" onclick="showAdminSec('ledger')">📒 会計<span class="cnt hidden" id="cnt-ledger"></span></button>
     </div>
 
     <!-- ---- 日程 ---- -->
@@ -314,6 +319,8 @@
       <div class="card tight"><div class="eyebrow">要対応</div>
         <div class="muted" style="padding:0 16px 6px">PayPayの取引履歴で見つからない申告と、誰の入金か分からないもの。誰の入金か選ぶと支払いとして反映され、次回からは自動で紐付きます。</div>
         <div id="admin-unmatched"><div class="ph" style="min-height:60px"><span class="spin"></span></div></div>
+        <div class="eyebrow" style="padding-top:6px">サブ管理者への誤送金で取り消しになった申告（30日以内）</div>
+        <div id="admin-subissues"><div class="ph" style="min-height:40px"><span class="spin"></span></div></div>
         <div class="eyebrow" style="padding-top:6px">PayPay（取引履歴で未確認の申告）</div>
         <div id="admin-pending"><div class="ph" style="min-height:60px"><span class="spin"></span></div></div>
       </div>
@@ -336,6 +343,14 @@
         <div class="eyebrow" style="margin-bottom:10px">収支（PayPay取込済みの日まで）</div>
         <div id="ledger-stats" style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><div class="ph" style="min-height:60px"><span class="spin"></span></div></div>
         <div class="hint" id="ledger-base"></div>
+      </div>
+      <div class="card tight" id="subpp-card"><div class="eyebrow">"<span class="sub-name">サブ管理者</span>"に届いたPayPay（確認待ち）</div>
+        <div class="muted" style="padding:0 16px 6px">誤って<span class="sub-name">サブ管理者</span>に送ったという申告です。PayPayの履歴で確認してください。届いた分は北区の精算で差し引きます。</div>
+        <div id="subpp-list"><div class="ph" style="min-height:60px"><span class="spin"></span></div></div>
+        <div style="padding:8px 16px 14px"><button class="btn ghost" style="margin:0" onclick="openSubRegister()">申告がないけど受け取ったPayPayを登録</button></div>
+      </div>
+      <div class="card tight" id="settle-card"><div class="eyebrow">北区の精算</div>
+        <div id="settle-body"><div class="ph" style="min-height:60px"><span class="spin"></span></div></div>
       </div>
       <div class="card tight" id="expense-card"><div class="eyebrow">登録済みの経費（体育館代・イベント経費）</div>
         <div class="muted" style="padding:0 16px 6px" id="expense-hint">確認用の一覧です。間違いがあれば「編集」で直せます。収入（練習・イベントの参加費）は出席の確定で自動的に反映されます。</div>
@@ -549,6 +564,11 @@ function applyMe(d) {
   document.getElementById('tab-admin').classList.toggle('hidden', !isStaff());
   document.querySelectorAll('.admin-only').forEach(el => el.classList.toggle('hidden', !d.isAdmin));
   document.getElementById('pp-id').textContent = d.paypayId || '—';
+  state.payee = d.payee || ''; state.subName = d.subName || ''; state.subNotices = d.subNotices || [];
+  document.getElementById('pp-payee').textContent = state.payee || '代表';
+  document.getElementById('sub-pp-method').classList.toggle('hidden', !state.subName);
+  document.querySelectorAll('.sub-name').forEach(el => { el.textContent = state.subName || 'サブ管理者'; });
+  setCount('cnt-ledger', d.subPendingCount || 0);
   document.getElementById('pay-dot').classList.toggle('hidden', !(state.unpaid.length && !d.me.exempt));
   renderHome();
   renderPayStatus();
@@ -889,10 +909,11 @@ async function submitConfirm(pid) {
 // ---------- 支払い ----------
 function renderPayStatus() {
   const u = state.unpaid;
-  document.getElementById('pay-status').innerHTML = state.me.exempt ? '' :
+  const notices = (state.subNotices || []).map(n => `<div class="banner warn"><div class="ic">!</div><div><div class="t">${esc(n.practice ? n.practice + 'の分の' : '')}PayPay（${yen(n.amount)}）は${esc(state.subName || 'サブ管理者')}に届いていませんでした</div><div class="s">送り先を確認して、もう一度送ってください（正しい送り先：${esc(state.payee || '代表')} ${esc(state.paypayId || '')}）</div></div></div>`).join('');
+  document.getElementById('pay-status').innerHTML = notices + (state.me.exempt ? '' :
     !u.length ? `<div class="banner ok"><div class="ic">✓</div><div><div class="t">未払いはありません</div></div></div>` :
     `<div class="banner warn"><div class="ic">!</div><div><div class="t">未払いがあります</div><div class="s">${esc(u.map(x => x.kind === 'event' ? x.name : fmtMD(x.date)).join('、'))} の分</div>
-      <div class="s" style="margin-top:6px;opacity:1">💡 PayPayで払った分は、反映まで最大1週間ほどかかります。送金済みなら、未払いと表示されていても大丈夫です。</div></div></div>`;
+      <div class="s" style="margin-top:6px;opacity:1">💡 PayPayで払った分は、反映まで最大1週間ほどかかります。送金済みなら、未払いと表示されていても大丈夫です。</div></div></div>`);
 }
 function copyPayPay() {
   if (!state.paypayId) return;
@@ -920,8 +941,15 @@ function syncAmount(selId) {
   const sel = document.getElementById(selId), price = sel.selectedOptions[0]?.dataset.price;
   if (price) document.getElementById('m-amount').value = price;
 }
+function openSubPayPay() {
+  openModal(`<h3>誤って"${esc(state.subName)}"に送ってしまった</h3><div class="muted">${esc(state.subName)}が届いているか確認したら、支払い済みになります（確認待ちの間も払った扱いです）。次からは ${esc(state.payee || '代表')}（PayPay ID：${esc(state.paypayId || '')}）に送ってください。</div>
+    <label>どの練習・イベントの分？</label>${practiceSelect('m-pid', 'late')}
+    <label>送った金額</label><input type="number" id="m-amount" inputmode="numeric" value="500">
+    <button class="btn" onclick="run(this, () => submitSimple('paypay_sub'))">登録する</button>`);
+  syncAmount('m-pid');
+}
 function openPayPay(mode) {
-  openModal(`<h3>PayPayで払った</h3><div class="muted">払い忘れていた分を送ったら登録してください。取引履歴とも自動で突き合わせます。</div>
+  openModal(`<h3>PayPayで払った</h3><div class="muted">払い忘れていた分を送ったら登録してください。取引履歴とも自動で突き合わせます。送金先は ${esc(state.payee || '代表')}（PayPay ID：${esc(state.paypayId || '')}）です。</div>
     <label>どの練習・イベントの分？</label>${practiceSelect('m-pid', mode)}
     <label>送った金額</label><input type="number" id="m-amount" inputmode="numeric" value="500">
     <button class="btn" onclick="run(this, () => submitSimple('paypay'))">登録する</button>`);
@@ -1090,7 +1118,8 @@ async function loadAdmin() {
   loadExpenses().catch(e => { document.getElementById('admin-expenses').innerHTML = `<div class="empty">読み込めませんでした: ${esc(e.message)}</div>`; });
   if (!state.isAdmin) return;
   const d = await api('admin_summary');
-  setCount('cnt-money', (d.unmatched || []).length + (d.pending || []).length);
+  setCount('cnt-money', (d.unmatched || []).length + (d.pending || []).length + (d.sub_issues || []).length);
+  document.getElementById('admin-subissues').innerHTML = (d.sub_issues || []).map(x => `<div class="row"><div class="l"><div class="t">${esc(x.name)}</div><div class="s">${x.status === 'rejected' ? `${esc(state.subName || 'サブ管理者')}が「届いていない」` : '確認されないまま期限切れ'} ・ ${fmtMD(x.date)} 申告${x.practice ? ' ・ ' + esc(x.practice) + 'の分' : ''}</div></div><span class="pill warn">${yen(x.amount)}</span></div>`).join('') || '<div class="empty">ありません</div>';
   const rowB = (r, cls, txt) => `<div class="row"><div class="l"><div class="t">${esc(r.name)}${r.type === 'guest' ? ' <span class="pill">助っ人</span>' : ''}</div><div class="s">${esc(r.unpaid || '')}</div></div><span class="pill ${cls}">${txt}</span></div>`;
   document.getElementById('admin-unpaid').innerHTML = d.balance.filter(r => r.balance < 0).map(r => rowB(r, 'warn', yen(-r.balance))).join('') || '<div class="empty">未払いはありません</div>';
   document.getElementById('admin-plus').innerHTML = d.balance.filter(r => r.balance > 0).map(r => rowB(r, 'info', '+' + yen(r.balance))).join('') || '<div class="empty">ありません</div>';
@@ -1261,8 +1290,84 @@ async function deleteEvent(pid) {
 // ---------- 経費（会計スプシの「支出」） ----------
 let expenseInfo = null;
 async function loadExpenses() {
-  expenseInfo = await api('admin_expenses');
-  renderExpenses();
+  const [e, sp, st] = await Promise.all([api('admin_expenses'), api('sub_pending').catch(() => ({ items: [] })), api('admin_settlement').catch(() => ({}))]);
+  expenseInfo = e; subPending = sp.items || []; settlement = st.settlement || null;
+  renderExpenses(); renderSubPending(); renderSettlement();
+}
+// ---- サブ管理者に届いたPayPay（確認待ち） ----
+let subPending = [];
+function renderSubPending() {
+  const card = document.getElementById('subpp-card');
+  card.classList.toggle('hidden', !settlement); // サブ管理者がいないときは出さない
+  setCount('cnt-ledger', subPending.length);
+  document.getElementById('subpp-list').innerHTML = subPending.map((x, i) => `<div class="row" style="flex-wrap:wrap"><div class="l"><div class="t">${esc(x.name)}</div><div class="s">${fmtMD(x.date)} 申告${x.practice ? ' ・ ' + esc(x.practice) + 'の分' : ''}</div></div><span class="pill amber">${yen(x.amount)}</span>
+    <div style="width:100%;margin-top:8px;display:grid;grid-template-columns:repeat(3,1fr);gap:6px"><button class="btn sm dark" style="margin:0;padding:9px 2px;font-size:13px;white-space:nowrap" onclick="run(this, () => subConfirm(${i}, 'ok'))">受け取った</button><button class="btn sm ghost" style="margin:0;padding:9px 2px;font-size:13px;white-space:nowrap" onclick="subAmount(${i})">金額が違う</button><button class="btn sm ghost" style="margin:0;padding:9px 2px;font-size:13px;white-space:nowrap;color:var(--warn)" onclick="run(this, () => subConfirm(${i}, 'reject'))">届いていない</button></div></div>`).join('') || '<div class="empty">確認待ちはありません</div>';
+}
+async function subConfirm(i, action, amount) {
+  const x = subPending[i]; if (!x) return;
+  if (action === 'reject' && !confirm(`${x.name} さんの ${yen(x.amount)} を「届いていない」として取り消します。${x.name} さんは未払いに戻ります。よろしいですか？`)) return;
+  await api('sub_confirm', { payment_id: x.payment_id, action, amount });
+  closeModal(); toast(action === 'reject' ? '取り消しました' : '支払い済みにしました'); await loadExpenses();
+}
+function subAmount(i) {
+  const x = subPending[i]; if (!x) return;
+  openModal(`<h3>実際に届いた金額</h3><div class="muted">${esc(x.name)} さん・申告 ${yen(x.amount)}${x.practice ? '（' + esc(x.practice) + 'の分）' : ''}</div>
+    <label>届いた金額</label><input type="number" id="sub-amt" inputmode="numeric" value="${x.amount}">
+    <div class="hint">この金額だけ支払い済みにします。足りない分は未払いのまま残ります</div>
+    <button class="btn dark" onclick="run(this, () => subConfirm(${i}, 'amount', Number(document.getElementById('sub-amt').value)))">この金額で確定</button>`);
+}
+async function openSubRegister() {
+  openModal(SPIN);
+  const opts = await memberOptions(true);
+  openModal(`<h3>受け取ったPayPayを登録</h3><div class="muted">申告がないけど、誤ってこちらに届いたPayPayを、本人の代わりに登録します。</div>
+    <label>誰から？</label><select id="sr-member"><option value="">選んでください</option>${opts}</select>
+    <label>どの練習・イベントの分？</label>${practiceSelect('m-pid', 'late')}
+    <label>届いた金額</label><input type="number" id="m-amount" inputmode="numeric" value="500">
+    <button class="btn dark" onclick="run(this, submitSubRegister)">登録する</button>`);
+  syncAmount('m-pid');
+}
+async function submitSubRegister() {
+  const mid = document.getElementById('sr-member').value, amount = Number(document.getElementById('m-amount').value);
+  if (!mid) { toast('誰からか選んでください'); return; }
+  if (!amount) { toast('金額を入れてください'); return; }
+  await api('sub_register', { member_id: mid, amount, practice_id: document.getElementById('m-pid').value });
+  closeModal(); toast('登録しました'); await loadExpenses();
+}
+// ---- 北区の精算 ----
+let settlement = null;
+const SETTLE_STATUS = { pending: ['送金待ち', 'warn'], carried: ['繰り越し', 'amber'], done: ['精算済み', 'ok'] };
+function settleLines(s, nm) {
+  const L = (label, v) => v ? `<div style="display:flex;justify-content:space-between;padding:3px 0"><span class="muted">${label}</span><b>${v < 0 ? '−' : ''}${yen(Math.abs(v))}</b></div>` : '';
+  return L(`${esc(nm)}が立て替えた体育館代`, s.expense) + L(`${esc(nm)}が回収した現金`, -s.cash) + L(`${esc(nm)}に届いたPayPay`, -s.paypay)
+    + (s.offset !== undefined ? L(`${esc(nm)}の練習費（未払い分）`, -s.offset) + L('前回からの繰り越し', s.carry) : '');
+}
+function renderSettlement() {
+  const card = document.getElementById('settle-card'), body = document.getElementById('settle-body');
+  card.classList.toggle('hidden', !settlement);
+  if (!settlement) return;
+  const s = settlement.latest, up = settlement.upcoming, nm = settlement.sub_name;
+  const hasUp = up.expense || up.cash || up.paypay;
+  let html = '';
+  if (s) {
+    const [st, cls] = SETTLE_STATUS[s.status] || [s.status, ''];
+    html += `<div style="padding:4px 16px 12px"><div style="display:flex;justify-content:space-between;align-items:center"><b>${esc(s.id)}（PayPay取込 ${fmtMD(s.base)} 分まで）</b><span class="pill ${cls}">${st}${s.done_at ? ' ' + fmtMD(s.done_at) : ''}</span></div>
+      <div style="margin-top:8px">${settleLines(s, nm)}</div>
+      <div style="display:flex;justify-content:space-between;border-top:1px solid var(--line);margin-top:6px;padding-top:8px"><b>${s.amount > 0 ? `${esc(settlement.payee)} → ${esc(nm)}` : '次回に繰り越し'}</b><b style="font-size:18px">${s.amount < 0 ? '−' : ''}${yen(Math.abs(s.amount))}</b></div>
+      ${state.isAdmin && s.status === 'pending' ? `<button class="btn dark" style="margin-top:10px" onclick="run(this, () => settleDone('${s.id}'))">PayPayで送ったので精算済みにする</button>` : ''}</div>`;
+  } else html += '<div class="empty">まだ精算はありません</div>';
+  html += `<div style="padding:0 16px 14px"><div class="muted" style="font-size:12px;font-weight:600;margin-bottom:4px">次の精算に入る予定（PayPayのCSVを取り込んだら計算）</div>${hasUp ? settleLines(up, nm) : '<div class="muted">今のところありません</div>'}
+    ${state.isAdmin ? '<button class="btn ghost" style="margin:10px 0 0" onclick="run(this, settleRun)">今すぐ精算を計算</button>' : ''}</div>`;
+  body.innerHTML = html;
+}
+async function settleDone(id) {
+  if (!confirm(`${settlement.sub_name} に ${yen(settlement.latest.amount)} を送りましたか？精算済みにします。`)) return;
+  const r = await api('admin_settlement_done', { settlement_id: id });
+  settlement = r.settlement; renderSettlement(); toast('精算済みにしました');
+}
+async function settleRun() {
+  if (!confirm('今の内容で精算を計算します。送金が必要なら、あんぐから' + settlement.payee + 'さんと' + settlement.sub_name + 'にメッセージが届きます。よろしいですか？')) return;
+  const r = await api('admin_settlement_run');
+  settlement = r.settlement; renderSettlement(); toast(r.result === 'created' ? '精算を計算しました' : '精算に入れるものはありませんでした');
 }
 function renderLedgerSummary() {
   const s = expenseInfo && expenseInfo.summary;
@@ -1313,6 +1418,8 @@ async function openExpense(preset, id) {
       <div class="hint">練習・イベントを選ぶと、その開催日が入ります。先払いしたものも開催日で計上するので、会計スプシの「基準日までの収支」には開催日が来るまで含まれません</div>
       <label>区分</label><select id="ex-cat">${expenseInfo.categories.map(c => `<option value="${c}"${c === v.category ? ' selected' : ''}>${c}</option>`).join('')}</select>
       <label>金額</label><input type="number" id="ex-amount" inputmode="numeric" placeholder="例: 5250" value="${v.amount}">
+      <div class="hint">キャンセルの返金はマイナスで入力（例: -4550）${e && e.settled ? `。精算（${esc(e.settled)}）に含めたので、金額と支払った人は変更できません` : ''}</div>
+      ${state.isAdmin && (expenseInfo.payers || []).length ? `<label>支払った人</label><select id="ex-payer">${expenseInfo.payers.map(m => `<option value="${m.member_id}"${m.member_id === (v.payer || state.me.member_id) ? ' selected' : ''}>${esc(m.name)}</option>`).join('')}</select>` : ''}
       <label>内容（任意）</label><input type="text" id="ex-note" placeholder="例: 19-22時 2面 / BBQ買い出し" value="${esc(v.note)}">
       <button class="btn dark" onclick="run(this, () => submitExpense('${e ? e.expense_id : ''}'))">${e ? '保存する' : '登録する'}</button>
       ${e ? `<button class="btn ghost" onclick="run(this, () => deleteExpense('${e.expense_id}'))">削除する</button>` : ''}`);
@@ -1330,6 +1437,7 @@ function syncExpenseDate() {
 async function submitExpense(id) {
   const g = k => document.getElementById(k).value;
   const b = { date: g('ex-date'), category: g('ex-cat'), amount: Number(g('ex-amount')), note: g('ex-note').trim(), ref: g('ex-ref') };
+  if (document.getElementById('ex-payer')) b.payer = g('ex-payer');
   if (!b.date) { toast('日付を入れてください'); return; }
   if (!b.amount) { toast('金額を入れてください'); return; }
   await api(id ? 'admin_update_expense' : 'admin_add_expense', id ? { expense_id: id, ...b } : b);
