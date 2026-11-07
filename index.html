@@ -141,6 +141,18 @@
   .btn:disabled { opacity:.7; cursor:default; }
   label { display:block; font-size:12px; font-weight:600; color:var(--muted); margin:12px 0 6px; }
   .hint { font-size:12px; color:var(--muted); margin-top:6px; }
+  /* 管理タブ内の区画切り替え */
+  .subtabs { display:flex; gap:6px; margin:4px 0 10px; padding:4px; background:var(--card); border-radius:999px; box-shadow:0 1px 2px rgba(17,24,39,.04); }
+  .subtabs button { flex:1; padding:9px 4px; border:none; border-radius:999px; background:none; font-size:14px; font-weight:700; color:var(--muted); display:flex; align-items:center; justify-content:center; gap:6px; }
+  .subtabs button.on { background:var(--accent-soft); color:var(--accent-ink); }
+  .subtabs .cnt { min-width:18px; height:18px; padding:0 5px; border-radius:999px; background:var(--warn); color:#fff; font-size:11px; font-weight:700; display:inline-flex; align-items:center; justify-content:center; }
+  /* 折りたたみカード（追加フォームなど、毎回は使わないもの） */
+  .card.fold { padding:0; }
+  .fold-head { width:100%; display:flex; justify-content:space-between; align-items:center; padding:14px 16px; border:none; background:none; font-size:15px; text-align:left; }
+  .fold-head .chev { font-size:22px; color:var(--faint); transform:rotate(90deg); transition:transform .15s; }
+  .fold.open .fold-head .chev { transform:rotate(-90deg); }
+  .fold-body { display:none; padding:0 16px 16px; }
+  .fold.open .fold-body { display:block; }
   input:not([type=checkbox]), select { display:block; width:100%; min-width:0; max-width:100%; padding:12px; font-size:16px; border:1px solid var(--line); border-radius:var(--r-sm); background:#fff; -webkit-appearance:none; appearance:none; }
   input[type=date], input[type=time] { min-height:48px; }
   textarea { display:block; width:100%; min-height:220px; padding:12px; font-size:16px; line-height:1.6; border:1px solid var(--line); border-radius:var(--r-sm); background:#fff; font-family:inherit; resize:vertical; }
@@ -259,41 +271,73 @@
 
   <!-- ================= 管理 ================= -->
   <section id="view-admin" class="hidden">
-    <div class="card">
-      <h2>練習日を追加</h2>
-      <div class="muted">複数日をまとめて追加できます。グループへの通知は1回にまとまります。</div>
-      <div id="np-rows"></div>
-      <button class="btn ghost" onclick="addPracticeRow()">＋ 日程を追加</button>
-      <button class="btn dark" onclick="run(this, createPractices)">まとめて登録する</button>
+    <!-- 管理タブは3つの区画に分ける: 日程（確定・追加・お知らせ）／集金（代表のみ）／会計（経費） -->
+    <div class="subtabs" id="admin-subtabs">
+      <button data-s="sched" class="on" onclick="showAdminSec('sched')">📅 日程<span class="cnt hidden" id="cnt-sched"></span></button>
+      <button data-s="money" class="admin-only" onclick="showAdminSec('money')">💴 集金<span class="cnt hidden" id="cnt-money"></span></button>
+      <button data-s="ledger" onclick="showAdminSec('ledger')">📒 会計</button>
     </div>
-    <div class="card admin-only evcard">
-      <h2>🎉 イベントを追加</h2>
-      <div class="muted">BBQや忘年会など。練習と同じように出欠を集められます。費用を入れると、出席を確定したときに練習費と同じ仕組みで請求されます。</div>
-      <div id="ne-form"></div>
-      <button class="btn dark" onclick="run(this, submitNewEvent)">イベントを登録する</button>
+
+    <!-- ---- 日程 ---- -->
+    <div class="asec" data-s="sched">
+      <div class="card tight">
+        <div class="eyebrow">出席の確定</div>
+        <div class="muted" style="padding:0 16px 6px">練習が終わったら出席を確定。参加費の請求と会計スプシの収入はここから自動で計算されます。</div>
+        <div id="admin-practices"><div class="ph" style="min-height:100px"><span class="spin"></span></div></div>
+      </div>
+      <div class="card tight">
+        <div class="eyebrow">グループへのお知らせ</div>
+        <div class="muted" style="padding:0 16px 6px">あなたのLINEから送ります（無料枠を使いません）。未納のお知らせはグループではなく本人へのDMです。</div>
+        <div class="grid2" style="padding:4px 16px 14px"><button class="btn ghost" style="margin:0" onclick="openSendTomorrow()">次の練習のお知らせ</button><button class="btn ghost" style="margin:0" onclick="openSend('unpaid')">未納の人にDM</button></div>
+      </div>
+      <div class="card fold" id="fold-np">
+        <button class="fold-head" onclick="togglePanel('fold-np')"><span><b>練習日を追加</b><span class="muted" style="margin-left:8px">複数日まとめてOK</span></span><span class="chev">›</span></button>
+        <div class="fold-body">
+          <div class="muted">グループへの通知は1回にまとまります。</div>
+          <div id="np-rows"></div>
+          <button class="btn ghost" onclick="addPracticeRow()">＋ 日程を追加</button>
+          <button class="btn dark" onclick="run(this, createPractices)">まとめて登録する</button>
+        </div>
+      </div>
+      <div class="card fold admin-only evcard" id="fold-ne">
+        <button class="fold-head" onclick="togglePanel('fold-ne')"><span><b>🎉 イベントを追加</b><span class="muted" style="margin-left:8px">BBQ・忘年会など</span></span><span class="chev">›</span></button>
+        <div class="fold-body">
+          <div class="muted">練習と同じように出欠を集められます。費用を入れると、出席を確定したときに練習費と同じ仕組みで請求されます。</div>
+          <div id="ne-form"></div>
+          <button class="btn dark" onclick="run(this, submitNewEvent)">イベントを登録する</button>
+        </div>
+      </div>
     </div>
-    <div class="card">
-      <h2>グループへのお知らせ</h2>
-      <div class="muted">あなたのLINEから送ります（無料枠を使いません）。練習前日と日曜に、あんぐから1:1でリンクが届きます。未納のお知らせはグループではなく、本人へのDMです。</div>
-      <div class="grid2" style="margin-top:10px"><button class="btn ghost" onclick="openSendTomorrow()">次の練習のお知らせ</button><button class="btn ghost" onclick="openSend('unpaid')">未納の人にDM</button></div>
+
+    <!-- ---- 集金（代表のみ） ---- -->
+    <div class="asec hidden" data-s="money">
+      <div class="card tight"><div class="eyebrow">要対応</div>
+        <div class="muted" style="padding:0 16px 6px">PayPayの取引履歴で見つからない申告と、誰の入金か分からないもの。誰の入金か選ぶと支払いとして反映され、次回からは自動で紐付きます。</div>
+        <div id="admin-unmatched"><div class="ph" style="min-height:60px"><span class="spin"></span></div></div>
+        <div class="eyebrow" style="padding-top:6px">PayPay（取引履歴で未確認の申告）</div>
+        <div id="admin-pending"><div class="ph" style="min-height:60px"><span class="spin"></span></div></div>
+      </div>
+      <div class="card tight"><div class="eyebrow">未払い</div><div id="admin-unpaid"><div class="ph" style="min-height:80px"><span class="spin"></span></div></div></div>
+      <div class="card tight"><div class="eyebrow">残高プラス（前払い・立て替え・記録漏れ）</div><div id="admin-plus"><div class="ph" style="min-height:80px"><span class="spin"></span></div></div></div>
+      <div class="card fold" id="fold-cash">
+        <button class="fold-head" onclick="togglePanel('fold-cash')"><span><b>袋の実額を記録</b><span class="muted" style="margin-left:8px">回収したとき</span></span><span class="chev">›</span></button>
+        <div class="fold-body">
+          <div class="muted">袋のお金を回収するときに数えて入力。前回の回収以降に「現金で払った」と登録された合計と比べて、登録忘れがないか確認します。</div>
+          <label>数えた金額</label><input type="number" id="cash-count" inputmode="numeric" placeholder="例: 4500">
+          <button class="btn dark" onclick="run(this, cashCount)">記録する</button>
+          <div id="cash-result"></div>
+        </div>
+      </div>
     </div>
-    <div class="card tight"><div class="eyebrow">出席の確定</div><div id="admin-practices"><div class="ph" style="min-height:100px"><span class="spin"></span></div></div></div>
-    <div class="card tight" id="expense-card"><div class="eyebrow">経費（体育館代・イベント経費）</div>
-      <div class="muted" style="padding:0 16px 6px" id="expense-hint">会計スプシの「支出」に記録されます。収入（練習・イベントの参加費）は出席の確定で自動的に反映されます。</div>
-      <div id="admin-expenses"><div class="ph" style="min-height:80px"><span class="spin"></span></div></div>
-      <div style="padding:8px 16px 14px"><button class="btn dark" style="margin:0" onclick="openExpense()">＋ 経費を登録</button>
-        <div class="grid2 admin-only" style="margin-top:8px"><button class="btn ghost" style="margin:0" id="ledger-open" onclick="openLedger()">会計スプシを開く</button><button class="btn ghost" style="margin:0" onclick="run(this, syncLedger)">収入を更新</button></div></div>
-    </div>
-    <div class="card tight admin-only"><div class="eyebrow">未払い</div><div id="admin-unpaid"><div class="ph" style="min-height:80px"><span class="spin"></span></div></div></div>
-    <div class="card tight admin-only"><div class="eyebrow">残高プラス（前払い・立て替え・記録漏れ）</div><div id="admin-plus"><div class="ph" style="min-height:80px"><span class="spin"></span></div></div></div>
-    <div class="card tight admin-only"><div class="eyebrow">PayPay（取引履歴で未確認）</div><div id="admin-pending"><div class="ph" style="min-height:80px"><span class="spin"></span></div></div></div>
-    <div class="card tight admin-only"><div class="eyebrow">名寄せできていないPayPay入金</div><div class="muted" style="padding:0 16px 6px">誰の入金か選ぶと支払いとして反映され、次回からは自動で紐付きます</div><div id="admin-unmatched"><div class="ph" style="min-height:80px"><span class="spin"></span></div></div></div>
-    <div class="card admin-only">
-      <h2>袋の実額を記録</h2>
-      <div class="muted">袋のお金を回収するときに数えて入力。前回の回収以降に「現金で払った」と登録された合計と比べて、登録忘れがないか確認します。</div>
-      <label>数えた金額</label><input type="number" id="cash-count" inputmode="numeric" placeholder="例: 4500">
-      <button class="btn dark" onclick="run(this, cashCount)">記録する</button>
-      <div id="cash-result"></div>
+
+    <!-- ---- 会計 ---- -->
+    <div class="asec hidden" data-s="ledger">
+      <div class="card tight" id="expense-card"><div class="eyebrow">経費（体育館代・イベント経費）</div>
+        <div class="muted" style="padding:0 16px 6px" id="expense-hint">会計スプシの「支出」に記録されます。収入（練習・イベントの参加費）は出席の確定で自動的に反映されます。</div>
+        <div id="admin-expenses"><div class="ph" style="min-height:80px"><span class="spin"></span></div></div>
+        <div style="padding:8px 16px 14px"><button class="btn dark" style="margin:0" onclick="openExpense()">＋ 経費を登録</button>
+          <div class="grid2 admin-only" style="margin-top:8px"><button class="btn ghost" style="margin:0" id="ledger-open" onclick="openLedger()">会計スプシを開く</button><button class="btn ghost" style="margin:0" onclick="run(this, syncLedger)">収入を更新</button></div></div>
+      </div>
     </div>
   </section>
 </main>
@@ -982,11 +1026,23 @@ function afterPracticeChange(kind, text, pid) {
 }
 
 // ---------- 管理 ----------
+// 管理タブの区画（日程／集金／会計）。最後に開いた区画を覚えておく
+let adminSec = (() => { try { return localStorage.getItem('adminSec') || 'sched'; } catch (e) { return 'sched'; } })();
+function showAdminSec(s) {
+  if (s === 'money' && !state.isAdmin) s = 'sched';
+  adminSec = s; try { localStorage.setItem('adminSec', s); } catch (e) {}
+  document.querySelectorAll('#view-admin .asec').forEach(el => el.classList.toggle('hidden', el.dataset.s !== s));
+  document.querySelectorAll('#admin-subtabs button').forEach(b => b.classList.toggle('on', b.dataset.s === s));
+  window.scrollTo(0, 0);
+}
+function togglePanel(id) { document.getElementById(id).classList.toggle('open'); }
+function setCount(id, n) { const el = document.getElementById(id); el.textContent = n; el.classList.toggle('hidden', !n); }
 async function loadAdmin() {
   renderAdminPractices();
   loadExpenses().catch(e => { document.getElementById('admin-expenses').innerHTML = `<div class="empty">読み込めませんでした: ${esc(e.message)}</div>`; });
   if (!state.isAdmin) return;
   const d = await api('admin_summary');
+  setCount('cnt-money', (d.unmatched || []).length + (d.pending || []).length);
   const rowB = (r, cls, txt) => `<div class="row"><div class="l"><div class="t">${esc(r.name)}${r.type === 'guest' ? ' <span class="pill">助っ人</span>' : ''}</div><div class="s">${esc(r.unpaid || '')}</div></div><span class="pill ${cls}">${txt}</span></div>`;
   document.getElementById('admin-unpaid').innerHTML = d.balance.filter(r => r.balance < 0).map(r => rowB(r, 'warn', yen(-r.balance))).join('') || '<div class="empty">未払いはありません</div>';
   document.getElementById('admin-plus').innerHTML = d.balance.filter(r => r.balance > 0).map(r => rowB(r, 'info', '+' + yen(r.balance))).join('') || '<div class="empty">ありません</div>';
@@ -1028,6 +1084,7 @@ async function ignoreUnmatched(i) {
 function renderAdminPractices() {
   const today = todayStr();
   const ps = state.practices.filter(p => p.date <= today || p.status === 'scheduled').sort((a, b) => b.date.localeCompare(a.date)).slice(0, 12);
+  setCount('cnt-sched', state.practices.filter(p => p.date < today && p.status === 'scheduled').length); // 終わったのに未確定
   document.getElementById('admin-practices').innerHTML = ps.map(p => `
     <div class="row"><div class="l"><div class="t">${isEvent(p) ? '🎉 ' + esc(p.name) + ' ' : ''}${fmtWhen(p)}</div><div class="s">${esc(p.place || '')} ・ ${countText(p)}</div></div>
     ${isEvent(p) ? (state.isAdmin ? `<button class="btn sm ghost" onclick="openEditEvent('${p.practice_id}')">編集</button>` : '') : `<button class="btn sm ghost" onclick="openEditPractice('${p.practice_id}')">編集</button>`}
@@ -1217,6 +1274,7 @@ async function show(v) {
   ['home', 'pay', 'admin'].forEach(k => document.getElementById('view-' + k).classList.toggle('hidden', k !== v));
   document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.v === v));
   window.scrollTo(0, 0);
+  if (v === 'admin') showAdminSec(adminSec);
   if (v === 'admin' && !document.querySelector('#np-rows .np-row')) addPracticeRow();
   if (v === 'admin' && !document.getElementById('ne-name')) resetEventForm();
   try { if (v === 'pay') await loadHistory(); if (v === 'admin') await loadAdmin(); } catch (e) { toast('読み込み失敗: ' + e.message); }
