@@ -688,8 +688,7 @@ async function openPractice(pid) {
           ? `<div class="hint" style="padding:8px 16px 14px">定員（${state.capacity}人）に達しているため助っ人は追加できません</div>`
           : `<div style="padding:8px 16px 14px"><button class="btn ghost" style="margin:0" onclick="openGuest('${pid}')">助っ人を追加</button></div>`}</div>
       ${state.isAdmin && p.status === 'scheduled' ? recruitCard(pid, p.recruit) : ''}
-      ${isStaff() ? `<button class="btn dark" onclick="openConfirm('${pid}')">${p.status === 'confirmed' ? '出席を修正する' : '出席を確定する'}</button><button class="btn ghost" onclick="openEditPractice('${pid}')">練習日を編集</button>` : ''}
-      ${state.isAdmin || (isStaff() && !String(p.place || '').includes('四谷')) ? `<button class="btn ghost" onclick="openExpenseFor('${pid}')">会場代を登録</button>` : ''}`);
+      ${isStaff() ? `<button class="btn dark" onclick="openConfirm('${pid}')">${p.status === 'confirmed' ? '出席を修正する' : '出席を確定する'}</button><button class="btn ghost" onclick="openEditPractice('${pid}')">練習日を編集</button>` : ''}`);
     lastRecruit = p.recruit || null;
     if (state.isAdmin && p.recruit && ['requested', 'closing'].includes(p.recruit.status)) pollRecruit(pid);
   } catch (e) { openModal(`<div class="empty">読み込めませんでした: ${esc(e.message)}</div>`); }
@@ -1130,7 +1129,7 @@ function addPracticeRow(preset) {
   const id = ++npSeq;
   const last = document.querySelector('#np-rows .np-row:last-child');
   const v = k => last ? last.querySelector(`[data-k=${k}]`).value : null;
-  const d = preset || { date: '', start: v('start') || '19:00', end: v('end') || '22:00', place: v('place') || '四谷スポーツスクエア', price: v('price') || '500', code: '' };
+  const d = preset || { date: '', start: v('start') || '19:00', end: v('end') || '22:00', place: v('place') || '四谷スポーツスクエア', price: v('price') || '500', code: '', fee: v('fee') || '' };
   const el = document.createElement('div');
   el.className = 'np-row'; el.id = 'np-' + id;
   el.innerHTML = `<button class="rm" onclick="removePracticeRow(${id})" aria-label="削除">×</button>
@@ -1138,7 +1137,9 @@ function addPracticeRow(preset) {
     <div class="fields"><div><label>開始</label><input type="time" data-k="start" value="${d.start}"></div><div><label>終了</label><input type="time" data-k="end" value="${d.end}"></div></div>
     <label>場所</label><input type="text" data-k="place" value="${esc(d.place)}" oninput="toggleCode(this.closest('.np-row'))">
     ${codeField('data-k="code"', d.place, d.code)}
-    <label>参加費</label><select data-k="price"><option value="500" ${d.price == 500 ? 'selected' : ''}>500円</option><option value="300" ${d.price == 300 ? 'selected' : ''}>300円</option></select>`;
+    <label>参加費</label><select data-k="price"><option value="500" ${d.price == 500 ? 'selected' : ''}>500円</option><option value="300" ${d.price == 300 ? 'selected' : ''}>300円</option></select>
+    <label>体育館代（任意）</label><input type="number" data-k="fee" inputmode="numeric" placeholder="例: 5250" value="${esc(d.fee || '')}">
+    <div class="hint">入れると会計の「支出」にも練習日付で登録されます。あとで直すときは「会計」から${state.isAdmin ? '' : '（サブ管理者は北区の体育館のみ登録できます）'}</div>`;
   document.getElementById('np-rows').appendChild(el);
 }
 function removePracticeRow(id) {
@@ -1150,7 +1151,7 @@ function resetPracticeRows() { document.getElementById('np-rows').innerHTML = ''
 async function createPractices() {
   const items = [...document.querySelectorAll('#np-rows .np-row')].map(r => {
     const g = k => r.querySelector(`[data-k=${k}]`).value;
-    return { date: g('date'), start: g('start'), end: g('end'), place: g('place'), price: g('price'), code: needsCode(g('place')) ? g('code').trim() : '' };
+    return { date: g('date'), start: g('start'), end: g('end'), place: g('place'), price: g('price'), code: needsCode(g('place')) ? g('code').trim() : '', fee: Number(g('fee')) || 0 };
   });
   if (items.some(it => !it.date)) { toast('日付が入っていない行があります'); return; }
   if (items.some(it => badCode(it.place, it.code))) { toast('番号は4桁の数字で入れてください'); return; }
@@ -1158,7 +1159,9 @@ async function createPractices() {
   const exists = items.filter(it => state.practices.some(p => p.date === it.date));
   if (exists.length && !confirm(`${exists.map(it => fmtMD(it.date)).join('、')} はすでに練習があります。追加しますか？`)) return;
   const r = await api('admin_create_practices', { items });
-  toast(`${r.practices.length}件追加しました`); resetPracticeRows(); await loadMe(); renderAdminPractices();
+  toast(`${r.practices.length}件追加しました${r.fee_added ? `（体育館代 ${r.fee_added}件も登録）` : ''}`);
+  if (r.fee_skipped && r.fee_skipped.length) setTimeout(() => toast(`${r.fee_skipped.map(fmtMD).join('、')} の体育館代は登録できませんでした。「会計」から登録してください`), 2300);
+  expenseInfo = null; resetPracticeRows(); await loadMe(); renderAdminPractices();
   afterPracticeChange('added', r.text);
 }
 // ---------- イベント（管理者のみ） ----------
