@@ -422,6 +422,50 @@ function fmtMD(s) { const d = parseD(s); if (isNaN(d)) return String(s ?? ''); r
 function fmtTime(p) { return p.start ? `${p.start}${p.end ? '–' + p.end : ''}` : ''; }
 function fmtWhen(p) { const t = fmtTime(p); return fmtMD(p.date) + (t ? ' ' + t : ''); }
 const needsCode = place => /四谷/.test(place || '');
+// ---- 場所（会場一覧から選ぶ。新しい会場はその場で登録） ----
+function defaultPlace() {
+  const list = state.places || [];
+  if (state.isAdmin && list.some(p => p.name === '四谷スポーツスクエア')) return '四谷スポーツスクエア';
+  return list.length ? list[0].name : '';
+}
+function placeOptions(value) {
+  const list = (state.places || []).slice();
+  if (value && !list.some(p => p.name === value)) list.unshift({ name: value }); // 以前の自由入力の場所
+  return list.map(p => `<option value="${esc(p.name)}"${p.name === value ? ' selected' : ''}>${esc(p.name)}</option>`).join('')
+    + `<option value="__new"${!list.length ? ' selected' : ''}>＋ 新しい会場を追加</option>`;
+}
+function placeField(attr, value, disabled) {
+  const none = !(state.places || []).length && !value;
+  return `<label>場所</label><select ${attr} onchange="onPlaceChange(this)"${disabled ? ' disabled' : ''}>${placeOptions(value)}</select>
+    <div data-newplace class="${none ? '' : 'hidden'}" style="margin-top:10px;padding:12px;border:1.5px dashed var(--line);border-radius:var(--r-sm)">
+      <label style="margin-top:0">施設名</label><input type="text" data-np="name" placeholder="例: 滝野川体育館">
+      ${state.isAdmin ? '<label>区・市</label><input type="text" data-np="ward" placeholder="例: 北区">' : '<div class="hint">北区の会場として登録します</div>'}
+      <div class="fields"><div><label>最寄り駅</label><input type="text" data-np="station" placeholder="例: 王子"></div><div><label>路線（任意）</label><input type="text" data-np="line" placeholder="例: JR京浜東北線"></div></div>
+      <label>町名（任意）</label><input type="text" data-np="town" placeholder="例: 滝野川">
+      <div class="hint">助っ人募集には施設名ではなく「○○駅周辺」と載ります</div>
+      <button class="btn dark" onclick="run(this, () => submitNewPlace(this))">この会場を登録</button>
+    </div>`;
+}
+function placeContainer(el) { return el.closest('.np-row') || document.getElementById('ep-wrap'); }
+function onPlaceChange(sel) {
+  sel.parentElement.querySelector('[data-newplace]').classList.toggle('hidden', sel.value !== '__new');
+  toggleCode(placeContainer(sel));
+}
+async function submitNewPlace(btn) {
+  const box = btn.closest('[data-newplace]'), g = k => (box.querySelector(`[data-np=${k}]`) || {}).value || '';
+  if (!g('name').trim()) { toast('施設名を入れてください'); return; }
+  if (state.isAdmin && !g('ward').trim()) { toast('区・市を入れてください'); return; }
+  if (!g('station').trim()) { toast('最寄り駅を入れてください'); return; }
+  const r = await api('admin_add_place', { name: g('name'), ward: g('ward'), station: g('station'), line: g('line'), town: g('town') });
+  state.places = [...(state.places || []), r.place];
+  document.querySelectorAll('select[data-k=place], select#ep-place').forEach(sel => {
+    const o = document.createElement('option'); o.value = r.place.name; o.textContent = r.place.name;
+    sel.insertBefore(o, sel.querySelector('option[value="__new"]'));
+  });
+  const sel = box.parentElement.querySelector('select'); sel.value = r.place.name;
+  box.querySelectorAll('input').forEach(i => { i.value = ''; }); box.classList.add('hidden');
+  toggleCode(placeContainer(sel)); toast(`${r.place.name} を登録しました`);
+}
 function codeField(prefix, place, value) {
   return `<div data-codewrap class="${needsCode(place) ? '' : 'hidden'}"><label>番号（4桁）</label><input type="text" ${prefix} inputmode="numeric" pattern="[0-9]*" maxlength="4" placeholder="例：1234" value="${esc(value || '')}"></div>`;
 }
@@ -1101,7 +1145,7 @@ function openEditPractice(pid) {
   openModal(`<h3>練習日を編集</h3>
     <label>日付</label><input type="date" id="ep-date" value="${p.date}">
     <div class="fields"><div><label>開始</label><input type="time" id="ep-start" value="${p.start || ''}"></div><div><label>終了</label><input type="time" id="ep-end" value="${p.end || ''}"></div></div>
-    <div id="ep-wrap"><label>場所</label><input type="text" id="ep-place" value="${esc(p.place || '')}"${full ? '' : ' readonly style="background:var(--bg);color:var(--muted)"'} oninput="toggleCode(document.getElementById('ep-wrap'))">
+    <div id="ep-wrap">${placeField('id="ep-place"', p.place || '', !full)}
     ${codeField('id="ep-code"', p.place, p.code)}</div>
     <label>参加費</label><select id="ep-price"${full ? '' : ' disabled'}><option value="500" ${p.price == 500 ? 'selected' : ''}>500円</option><option value="300" ${p.price == 300 ? 'selected' : ''}>300円</option>${[500, 300].includes(Number(p.price)) ? '' : `<option value="${p.price}" selected>${yen(p.price)}</option>`}</select>
     ${full ? '' : '<div class="hint">場所・参加費の変更と練習の削除は代表のみできます（北区の練習はサブ管理者もできます）</div>'}
@@ -1111,6 +1155,7 @@ function openEditPractice(pid) {
 async function saveEditPractice(pid) {
   const g = id => document.getElementById(id).value;
   if (!g('ep-date')) { toast('日付を選んでください'); return; }
+  if (!g('ep-place') || g('ep-place') === '__new') { toast('場所を選んでください（新しい会場は先に登録）'); return; }
   const code = needsCode(g('ep-place')) ? g('ep-code').trim() : '';
   if (badCode(g('ep-place'), code)) { toast('番号は4桁の数字で入れてください'); return; }
   const r = await api('admin_update_practice', { practice_id: pid, date: g('ep-date'), start: g('ep-start'), end: g('ep-end'), place: g('ep-place'), price: g('ep-price'), code });
@@ -1129,17 +1174,18 @@ function addPracticeRow(preset) {
   const id = ++npSeq;
   const last = document.querySelector('#np-rows .np-row:last-child');
   const v = k => last ? last.querySelector(`[data-k=${k}]`).value : null;
-  const d = preset || { date: '', start: v('start') || '19:00', end: v('end') || '22:00', place: v('place') || '四谷スポーツスクエア', price: v('price') || '500', code: '', fee: v('fee') || '' };
+  const lastPlace = v('place') && v('place') !== '__new' ? v('place') : '';
+  const d = preset || { date: '', start: v('start') || '19:00', end: v('end') || '22:00', place: lastPlace || defaultPlace(), price: v('price') || '500', code: '', fee: v('fee') || '' };
   const el = document.createElement('div');
   el.className = 'np-row'; el.id = 'np-' + id;
   el.innerHTML = `<button class="rm" onclick="removePracticeRow(${id})" aria-label="削除">×</button>
     <label>日付</label><input type="date" data-k="date" value="${d.date}">
     <div class="fields"><div><label>開始</label><input type="time" data-k="start" value="${d.start}"></div><div><label>終了</label><input type="time" data-k="end" value="${d.end}"></div></div>
-    <label>場所</label><input type="text" data-k="place" value="${esc(d.place)}" oninput="toggleCode(this.closest('.np-row'))">
+    ${placeField('data-k="place"', d.place)}
     ${codeField('data-k="code"', d.place, d.code)}
     <label>参加費</label><select data-k="price"><option value="500" ${d.price == 500 ? 'selected' : ''}>500円</option><option value="300" ${d.price == 300 ? 'selected' : ''}>300円</option></select>
     <label>体育館代（任意）</label><input type="number" data-k="fee" inputmode="numeric" placeholder="例: 5250" value="${esc(d.fee || '')}">
-    <div class="hint">入れると会計の「支出」にも練習日付で登録されます。あとで直すときは「会計」から${state.isAdmin ? '' : '（サブ管理者は北区の体育館のみ登録できます）'}</div>`;
+    <div class="hint">入れると会計の「支出」にも練習日付で登録されます。あとで直すときは「会計」から</div>`;
   document.getElementById('np-rows').appendChild(el);
 }
 function removePracticeRow(id) {
@@ -1154,6 +1200,7 @@ async function createPractices() {
     return { date: g('date'), start: g('start'), end: g('end'), place: g('place'), price: g('price'), code: needsCode(g('place')) ? g('code').trim() : '', fee: Number(g('fee')) || 0 };
   });
   if (items.some(it => !it.date)) { toast('日付が入っていない行があります'); return; }
+  if (items.some(it => !it.place || it.place === '__new')) { toast('場所を選んでください（新しい会場は先に登録）'); return; }
   if (items.some(it => badCode(it.place, it.code))) { toast('番号は4桁の数字で入れてください'); return; }
   const dup = new Set(); if (items.some(it => dup.size === dup.add(it.date).size)) { toast('同じ日付が重複しています'); return; }
   const exists = items.filter(it => state.practices.some(p => p.date === it.date));
@@ -1318,6 +1365,7 @@ async function show(v) {
   document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.v === v));
   window.scrollTo(0, 0);
   if (v === 'admin') showAdminSec(adminSec);
+  if (v === 'admin' && !state.places) { try { state.places = (await api('admin_places')).places; } catch (e) { state.places = []; } }
   if (v === 'admin' && !document.querySelector('#np-rows .np-row')) addPracticeRow();
   if (v === 'admin' && !document.getElementById('ne-name')) resetEventForm();
   try { if (v === 'pay') await loadHistory(); if (v === 'admin') await loadAdmin(); } catch (e) { toast('読み込み失敗: ' + e.message); }
