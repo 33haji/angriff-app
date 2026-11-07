@@ -413,7 +413,7 @@ function toast(msg) { const t = document.getElementById('toast'); t.textContent 
 function yen(n) { return Number(n).toLocaleString('ja-JP') + '円'; }
 function esc(s) { return String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 function parseD(s) { const [y, m, d] = String(s).slice(0, 10).split('-').map(Number); return new Date(y, m - 1, d); }
-function fmtMD(s) { const d = parseD(s); return `${d.getMonth() + 1}/${d.getDate()}（${DOW[d.getDay()]}）`; }
+function fmtMD(s) { const d = parseD(s); if (isNaN(d)) return String(s ?? ''); return `${d.getMonth() + 1}/${d.getDate()}（${DOW[d.getDay()]}）`; }
 function fmtTime(p) { return p.start ? `${p.start}${p.end ? '–' + p.end : ''}` : ''; }
 function fmtWhen(p) { const t = fmtTime(p); return fmtMD(p.date) + (t ? ' ' + t : ''); }
 const needsCode = place => /四谷/.test(place || '');
