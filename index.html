@@ -281,7 +281,7 @@
     <div class="card tight admin-only"><div class="eyebrow">未払い</div><div id="admin-unpaid"><div class="ph" style="min-height:80px"><span class="spin"></span></div></div></div>
     <div class="card tight admin-only"><div class="eyebrow">残高プラス（前払い・立て替え・記録漏れ）</div><div id="admin-plus"><div class="ph" style="min-height:80px"><span class="spin"></span></div></div></div>
     <div class="card tight admin-only"><div class="eyebrow">PayPay（取引履歴で未確認）</div><div id="admin-pending"><div class="ph" style="min-height:80px"><span class="spin"></span></div></div></div>
-    <div class="card tight admin-only"><div class="eyebrow">名寄せできていないPayPay入金</div><div class="muted" style="padding:0 16px 6px">スプレッドシートの unmatched で紐付け</div><div id="admin-unmatched"><div class="ph" style="min-height:80px"><span class="spin"></span></div></div></div>
+    <div class="card tight admin-only"><div class="eyebrow">名寄せできていないPayPay入金</div><div class="muted" style="padding:0 16px 6px">誰の入金か選ぶと支払いとして反映され、次回からは自動で紐付きます</div><div id="admin-unmatched"><div class="ph" style="min-height:80px"><span class="spin"></span></div></div></div>
     <div class="card admin-only">
       <h2>袋の実額を記録</h2>
       <div class="muted">袋のお金を回収するときに数えて入力。前回の回収以降に「現金で払った」と登録された合計と比べて、登録忘れがないか確認します。</div>
@@ -983,8 +983,40 @@ async function loadAdmin() {
   document.getElementById('admin-unpaid').innerHTML = d.balance.filter(r => r.balance < 0).map(r => rowB(r, 'warn', yen(-r.balance))).join('') || '<div class="empty">未払いはありません</div>';
   document.getElementById('admin-plus').innerHTML = d.balance.filter(r => r.balance > 0).map(r => rowB(r, 'info', '+' + yen(r.balance))).join('') || '<div class="empty">ありません</div>';
   document.getElementById('admin-pending').innerHTML = (d.pending || []).map(u => `<div class="row"><div class="l"><div class="t">${esc(u.name)}</div><div class="s">${fmtMD(u.date)} 登録</div></div><span class="pill">${yen(u.amount)}</span></div>`).join('') || '<div class="empty">ありません</div>';
-  document.getElementById('admin-unmatched').innerHTML = d.unmatched.map(u => `<div class="row"><div class="l"><div class="t">${esc(u.name)}</div><div class="s">${fmtMD(u.date)}</div></div><span class="pill">${yen(u.amount)}</span></div>`).join('') || '<div class="empty">ありません</div>';
+  unmatchedList = d.unmatched || [];
+  document.getElementById('admin-unmatched').innerHTML = unmatchedList.map((u, i) => `<div class="row"><div class="l"><div class="t">${esc(u.name || '（名前なし）')}</div><div class="s">${fmtMD(u.date)}${u.status === 'review' ? ' ・<span style="color:var(--warn);font-weight:600">金額要確認</span>' : ''}</div></div><span class="pill">${yen(u.amount)}</span><button class="btn sm dark" onclick="openResolve(${i})">対応</button></div>`).join('') || '<div class="empty">ありません</div>';
 }
+// ---------- 名寄せできていないPayPay入金 ----------
+let unmatchedList = [];
+async function openResolve(i) {
+  const u = unmatchedList[i]; if (!u) return;
+  openModal(SPIN);
+  if (!state.members.length) state.members = (await api('members')).members;
+  const opts = state.members.slice().sort((a, b) => (a.type === b.type ? 0 : a.type === 'member' ? -1 : 1))
+    .map(m => `<option value="${m.member_id}">${esc(m.name)}${m.type === 'guest' ? '（助っ人）' : ''}</option>`).join('');
+  openModal(`<h3>PayPay入金の対応</h3>
+    <div class="card" style="margin:10px 0 0;padding:12px 14px">
+      <div style="display:flex;justify-content:space-between;align-items:center"><b>${esc(u.name || '（名前なし）')}</b><b>${yen(u.amount)}</b></div>
+      <div class="muted">${fmtMD(u.date)} の入金${u.status === 'review' ? '・金額が普段と違うため自動で反映していません' : '・PayPayの表示名がメンバーに登録されていません'}</div>
+    </div>
+    <label>誰の支払い？</label><select id="ru-member"><option value="">選んでください</option>${opts}</select>
+    <div class="hint">選んだ人の支払いとして反映します。この表示名（${esc(u.name || '')}）はその人に登録され、次回からは自動で紐付きます</div>
+    <button class="btn dark" onclick="run(this, () => resolveUnmatched(${i}))">この人の支払いとして反映</button>
+    <button class="btn ghost" onclick="run(this, () => ignoreUnmatched(${i}))">練習費・イベント費ではないので無視する</button>`);
+}
+async function resolveUnmatched(i) {
+  const u = unmatchedList[i], mid = document.getElementById('ru-member').value;
+  if (!mid) { toast('誰の支払いか選んでください'); return; }
+  await api('admin_resolve_unmatched', { txn: u.txn, member_id: mid });
+  closeModal(); toast('反映しました'); await loadAdmin();
+}
+async function ignoreUnmatched(i) {
+  const u = unmatchedList[i];
+  if (!confirm(`${u.name || ''} の ${yen(u.amount)} を無視します。よろしいですか？`)) return;
+  await api('admin_ignore_unmatched', { txn: u.txn });
+  closeModal(); toast('無視しました'); await loadAdmin();
+}
+
 function renderAdminPractices() {
   const today = todayStr();
   const ps = state.practices.filter(p => p.date <= today || p.status === 'scheduled').sort((a, b) => b.date.localeCompare(a.date)).slice(0, 12);
