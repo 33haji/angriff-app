@@ -1355,7 +1355,8 @@ function renderSettlement() {
       <div style="display:flex;justify-content:space-between;border-top:1px solid var(--line);margin-top:6px;padding-top:8px"><b>${s.amount > 0 ? `${esc(settlement.payee)} → ${esc(nm)}` : '次回に繰り越し'}</b><b style="font-size:18px">${s.amount < 0 ? '−' : ''}${yen(Math.abs(s.amount))}</b></div>
       ${state.isAdmin && s.status === 'pending' ? `<button class="btn dark" style="margin-top:10px" onclick="run(this, () => settleDone('${s.id}'))">PayPayで送ったので精算済みにする</button>` : ''}</div>`;
   } else html += '<div class="empty">まだ精算はありません</div>';
-  html += `<div style="padding:0 16px 14px"><div class="muted" style="font-size:12px;font-weight:600;margin-bottom:4px">次の精算に入る予定（PayPayのCSVを取り込んだら計算）</div>${hasUp ? settleLines(up, nm) : '<div class="muted">今のところありません</div>'}
+  html += `<div style="padding:0 16px 14px"><div class="muted" style="font-size:12px;font-weight:600;margin-bottom:4px">まだ精算していない分（北区の練習日が過ぎてから、次のCSV取り込みで計算）</div>${hasUp ? settleLines(up, nm) : '<div class="muted">今のところありません</div>'}
+    ${settlement.future_expense ? `<div class="hint">うち体育館代 ${yen(settlement.future_expense)} はまだ練習日前なので、練習が終わってから精算します</div>` : ''}
     ${state.isAdmin ? '<button class="btn ghost" style="margin:10px 0 0" onclick="run(this, settleRun)">今すぐ精算を計算</button>' : ''}</div>`;
   body.innerHTML = html;
 }
