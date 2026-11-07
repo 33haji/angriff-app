@@ -912,7 +912,7 @@ function renderPayStatus() {
   const notices = (state.subNotices || []).map(n => `<div class="banner warn"><div class="ic">!</div><div><div class="t">${esc(n.practice ? n.practice + 'の分の' : '')}PayPay（${yen(n.amount)}）は${esc(state.subName || 'サブ管理者')}に届いていませんでした</div><div class="s">送り先を確認して、もう一度送ってください（正しい送り先：${esc(state.payee || '代表')} ${esc(state.paypayId || '')}）</div></div></div>`).join('');
   document.getElementById('pay-status').innerHTML = notices + (state.me.exempt ? '' :
     !u.length ? `<div class="banner ok"><div class="ic">✓</div><div><div class="t">未払いはありません</div></div></div>` :
-    `<div class="banner warn"><div class="ic">!</div><div><div class="t">未払いがあります</div><div class="s">${esc(u.map(x => x.kind === 'event' ? x.name : fmtMD(x.date)).join('、'))} の分</div>
+    `<div class="banner warn"><div class="ic">!</div><div><div class="t">未払いがあります</div><div class="s">${esc(u.map(x => x.kind === 'transfer' ? `${fmtMD(x.date)} ${x.label}` : x.kind === 'event' ? x.name : fmtMD(x.date)).join('、'))}${u.every(x => x.kind === 'transfer') ? '' : ' の分'}</div>
       <div class="s" style="margin-top:6px;opacity:1">💡 PayPayで払った分は、反映まで最大1週間ほどかかります。送金済みなら、未払いと表示されていても大丈夫です。</div></div></div>`);
 }
 function copyPayPay() {
@@ -927,13 +927,13 @@ function copyPayPay() {
 function practiceSelect(id, mode) {
   const today = todayStr();
   const near = state.practices.filter(p => p.date >= today && (parseD(p.date) - parseD(today)) / 864e5 <= 14).sort((a, b) => a.date.localeCompare(b.date));
-  const unpaid = state.unpaid.map(u => ({ practice_id: u.practice_id, kind: u.kind, name: u.name, date: u.date, price: u.price, tag: '未払い' }));
+  const unpaid = state.unpaid.map(u => ({ practice_id: u.practice_id, kind: u.kind, name: u.name, label: u.label, date: u.date, price: u.price, tag: '未払い' }));
   const past = state.practices.filter(p => p.date <= today).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 8);
   const order = mode === 'late' ? [...unpaid, ...past] : near;
   const seen = new Set(), opts = [];
-  order.forEach(p => { if (seen.has(p.practice_id)) return; seen.add(p.practice_id);
+  order.forEach(p => { const key = p.practice_id + '|' + (p.label || ''); if (seen.has(key)) return; seen.add(key);
     const tag = p.tag || (state.unpaid.some(u => u.practice_id === p.practice_id) ? '未払い' : '');
-    opts.push(`<option value="${p.practice_id}" data-price="${p.price}">${isEvent(p) ? esc(p.name) + ' ' + fmtMD(p.date) : fmtWhen(p)}${tag ? `（${tag}）` : ''}</option>`); });
+    opts.push(`<option value="${p.practice_id}" data-price="${p.price}">${p.kind === 'transfer' ? fmtMD(p.date) + ' ' + esc(p.label) : isEvent(p) ? esc(p.name) + ' ' + fmtMD(p.date) : fmtWhen(p)}${tag ? `（${tag}）` : ''}</option>`); });
   opts.push(`<option value="" data-price="">複数回分をまとめて・その他</option>`);
   return `<select id="${id}" onchange="syncAmount('${id}')">${opts.join('')}</select>`;
 }
