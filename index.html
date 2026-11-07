@@ -332,8 +332,8 @@
 
     <!-- ---- 会計 ---- -->
     <div class="asec hidden" data-s="ledger">
-      <div class="card tight" id="expense-card"><div class="eyebrow">経費（体育館代・イベント経費）</div>
-        <div class="muted" style="padding:0 16px 6px" id="expense-hint">会計スプシの「支出」に記録されます。収入（練習・イベントの参加費）は出席の確定で自動的に反映されます。</div>
+      <div class="card tight" id="expense-card"><div class="eyebrow">登録済みの経費（体育館代・イベント経費）</div>
+        <div class="muted" style="padding:0 16px 6px" id="expense-hint">確認用の一覧です。間違いがあれば「編集」で直せます。収入（練習・イベントの参加費）は出席の確定で自動的に反映されます。</div>
         <div id="admin-expenses"><div class="ph" style="min-height:80px"><span class="spin"></span></div></div>
         <div style="padding:8px 16px 14px"><button class="btn dark" style="margin:0" onclick="openExpense()">＋ 経費を登録</button>
           <div class="grid2 admin-only" style="margin-top:8px"><button class="btn ghost" style="margin:0" id="ledger-open" onclick="openLedger()">会計スプシを開く</button><button class="btn ghost" style="margin:0" onclick="run(this, syncLedger)">収入を更新</button></div></div>
@@ -1213,7 +1213,8 @@ function renderExpenses() {
   const el = document.getElementById('admin-expenses');
   if (!expenseInfo.configured) { el.innerHTML = '<div class="empty">会計スプシが未設定です（config の ledger_spreadsheet_id）</div>'; return; }
   const canEdit = e => expenseInfo.categories.includes(e.category);
-  el.innerHTML = expenseInfo.expenses.slice(0, 15).map(e => `<div class="row"><div class="l"><div class="t">${esc(e.category)}${e.note ? ' ・ ' + esc(e.note) : ''}</div><div class="s">${fmtMD(e.date)}${e.ref_label ? ' ・ ' + esc(e.ref_label) : ''}</div></div><span class="pill">${yen(e.amount)}</span>${canEdit(e) ? `<button class="btn sm ghost" style="margin-left:6px" onclick="openExpense(null, '${e.expense_id}')">編集</button>` : ''}</div>`).join('') || '<div class="empty">まだ登録がありません</div>';
+  const today = todayStr();
+  el.innerHTML = expenseInfo.expenses.slice(0, 15).map(e => `<div class="row"><div class="l"><div class="t">${esc(e.category)}${e.note ? ' ・ ' + esc(e.note) : ''}</div><div class="s">${fmtMD(e.date)}${e.date > today ? ' <span class="pill amber" style="margin-left:4px">先払い</span>' : ''}${e.ref_label ? ' ・ ' + esc(e.ref_label) : ''}</div></div><span class="pill">${yen(e.amount)}</span>${canEdit(e) ? `<button class="btn sm ghost" style="margin-left:6px" onclick="openExpense(null, '${e.expense_id}')">編集</button>` : ''}</div>`).join('') || '<div class="empty">まだ登録がありません</div>';
 }
 function openLedger() { if (expenseInfo && expenseInfo.url) window.open(expenseInfo.url, '_blank'); }
 async function syncLedger() { const r = await api('admin_ledger_sync'); toast(`収入 ${r.count}件を書き出しました`); }
