@@ -1225,17 +1225,34 @@ async function openExpense(preset, id) {
     const v = e || { date: todayStr(), category: expenseInfo.categories[0], amount: '', note: '', ref: '', ...(preset || {}) };
     if (!expenseInfo.categories.includes(v.category)) v.category = expenseInfo.categories[0];
     const today = todayStr();
-    const refs = state.practices.filter(p => p.date <= today || p.practice_id === v.ref).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 20);
-    if (v.ref && !refs.some(p => p.practice_id === v.ref)) refs.unshift({ practice_id: v.ref, date: v.date, name: v.ref });
+    // これからの練習・イベント（近い順）→ 過去（新しい順）。先払いの体育館代・イベント費も紐付けられるように
+    const upcoming = state.practices.filter(p => p.date >= today).sort((a, b) => a.date.localeCompare(b.date));
+    const past = state.practices.filter(p => p.date < today).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 15);
+    const label = p => isEvent(p) ? `🎉 ${esc(p.name)} ${fmtMD(p.date)}` : `${fmtMD(p.date)} ${esc(p.place || '')}`;
+    const opt = p => `<option value="${p.practice_id}" data-date="${p.date}"${p.practice_id === v.ref ? ' selected' : ''}>${label(p)}</option>`;
+    const known = [...upcoming, ...past].some(p => p.practice_id === v.ref);
     openModal(`<h3>${e ? '経費を編集' : '経費を登録'}</h3>
-      <label>日付</label><input type="date" id="ex-date" value="${v.date}">
+      <label>関連する練習・イベント（任意）</label><select id="ex-ref" onchange="syncExpenseDate()"><option value="" data-date="">なし</option>
+        ${v.ref && !known ? `<option value="${esc(v.ref)}" data-date="${v.date}" selected>${esc(v.ref)}</option>` : ''}
+        ${upcoming.length ? `<optgroup label="これから">${upcoming.map(opt).join('')}</optgroup>` : ''}
+        ${past.length ? `<optgroup label="過去">${past.map(opt).join('')}</optgroup>` : ''}</select>
+      <label>計上日</label><input type="date" id="ex-date" value="${v.date}">
+      <div class="hint">練習・イベントを選ぶと、その開催日が入ります。先払いしたものも開催日で計上するので、会計スプシの「基準日までの収支」には開催日が来るまで含まれません</div>
       <label>区分</label><select id="ex-cat">${expenseInfo.categories.map(c => `<option value="${c}"${c === v.category ? ' selected' : ''}>${c}</option>`).join('')}</select>
       <label>金額</label><input type="number" id="ex-amount" inputmode="numeric" placeholder="例: 5250" value="${v.amount}">
       <label>内容（任意）</label><input type="text" id="ex-note" placeholder="例: 19-22時 2面 / BBQ買い出し" value="${esc(v.note)}">
-      <label>関連する練習・イベント（任意）</label><select id="ex-ref"><option value="">なし</option>${refs.map(p => `<option value="${p.practice_id}"${p.practice_id === v.ref ? ' selected' : ''}>${isEvent(p) ? esc(p.name) + ' ' + fmtMD(p.date) : fmtWhen(p)}</option>`).join('')}</select>
       <button class="btn dark" onclick="run(this, () => submitExpense('${e ? e.expense_id : ''}'))">${e ? '保存する' : '登録する'}</button>
       ${e ? `<button class="btn ghost" onclick="run(this, () => deleteExpense('${e.expense_id}'))">削除する</button>` : ''}`);
   } catch (err) { openModal(`<div class="empty">${esc(err.message)}</div>`); }
+}
+/** 関連する練習・イベントを選んだら、計上日をその開催日にし、区分も場所から推定する（イベントは「その他」） */
+function syncExpenseDate() {
+  const sel = document.getElementById('ex-ref'), o = sel.selectedOptions[0];
+  if (o && o.dataset.date) document.getElementById('ex-date').value = o.dataset.date;
+  const p = practiceById(sel.value); if (!p || !expenseInfo) return;
+  const cat = isEvent(p) ? 'その他' : (expenseInfo.place_categories[p.place] || 'その他');
+  const cs = document.getElementById('ex-cat');
+  if ([...cs.options].some(x => x.value === cat)) cs.value = cat;
 }
 async function submitExpense(id) {
   const g = k => document.getElementById(k).value;
