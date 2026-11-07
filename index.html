@@ -1338,7 +1338,8 @@ let settlement = null;
 const SETTLE_STATUS = { pending: ['送金待ち', 'warn'], carried: ['繰り越し', 'amber'], done: ['精算済み', 'ok'] };
 function settleLines(s, nm) {
   const L = (label, v) => v ? `<div style="display:flex;justify-content:space-between;padding:3px 0"><span class="muted">${label}</span><b>${v < 0 ? '−' : ''}${yen(Math.abs(v))}</b></div>` : '';
-  return L(`${esc(nm)}が立て替えた体育館代`, s.expense) + L(`${esc(nm)}が回収した現金`, -s.cash) + L(`${esc(nm)}に届いたPayPay`, -s.paypay)
+  const ex = (s.expenses || []).map(e => `<div style="display:flex;justify-content:space-between;padding:1px 0 1px 12px;font-size:13px"><span class="muted">・${esc(e.label)}</span><span class="muted">${e.amount < 0 ? '−' : ''}${yen(Math.abs(e.amount))}</span></div>`).join('');
+  return L(`${esc(nm)}が立て替えた体育館代`, s.expense) + ex + L(`${esc(nm)}が回収した現金`, -s.cash) + L(`${esc(nm)}に届いたPayPay`, -s.paypay)
     + (s.offset !== undefined ? L(`${esc(nm)}の練習費（未払い分）`, -s.offset) + L('前回からの繰り越し', s.carry) : '');
 }
 function renderSettlement() {
