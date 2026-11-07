@@ -1097,10 +1097,10 @@ function openEditPractice(pid) {
   openModal(`<h3>練習日を編集</h3>
     <label>日付</label><input type="date" id="ep-date" value="${p.date}">
     <div class="fields"><div><label>開始</label><input type="time" id="ep-start" value="${p.start || ''}"></div><div><label>終了</label><input type="time" id="ep-end" value="${p.end || ''}"></div></div>
-    <div id="ep-wrap"><label>場所</label><input type="text" id="ep-place" value="${esc(p.place || '')}" oninput="toggleCode(document.getElementById('ep-wrap'))">
+    <div id="ep-wrap"><label>場所</label><input type="text" id="ep-place" value="${esc(p.place || '')}"${full ? '' : ' readonly style="background:var(--bg);color:var(--muted)"'} oninput="toggleCode(document.getElementById('ep-wrap'))">
     ${codeField('id="ep-code"', p.place, p.code)}</div>
     <label>参加費</label><select id="ep-price"${full ? '' : ' disabled'}><option value="500" ${p.price == 500 ? 'selected' : ''}>500円</option><option value="300" ${p.price == 300 ? 'selected' : ''}>300円</option>${[500, 300].includes(Number(p.price)) ? '' : `<option value="${p.price}" selected>${yen(p.price)}</option>`}</select>
-    ${full ? '' : '<div class="hint">参加費の変更と練習の削除は代表のみできます（北区の練習はサブ管理者もできます）</div>'}
+    ${full ? '' : '<div class="hint">場所・参加費の変更と練習の削除は代表のみできます（北区の練習はサブ管理者もできます）</div>'}
     <button class="btn dark" onclick="run(this, () => saveEditPractice('${pid}'))">保存する</button>
     ${full ? `<button class="btn ghost" style="color:var(--warn)" onclick="run(this, () => deletePractice('${pid}'))">この練習を削除</button>` : ''}`);
 }
