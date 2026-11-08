@@ -1008,7 +1008,7 @@ async function loadHistory() {
   const others = d.forOthers || [];
   document.getElementById('hist-others-card').classList.toggle('hidden', !others.length);
   document.getElementById('hist-others').innerHTML = others.slice(0, 20).map(o => `
-    <div class="row"><div class="l"><div class="t">${esc(o.name)} の分</div><div class="s">${fmtMD(o.date)} ${esc(o.note || '')}</div></div><span class="pill">${yen(o.amount)}</span></div>`).join('');
+    <div class="row"><div class="l"><div class="t">${esc(o.name)} の分 ${yen(o.amount)}</div><div class="s">${o.practice_date ? fmtMD(o.practice_date) + 'の練習' : fmtMD(o.date) + ' 登録'}</div></div>${o.status ? `<span class="pill ${o.status === '支払い済み' ? 'ok' : o.status === '未払い' ? 'warn' : ''}">${o.status}</span>` : `<span class="pill">${yen(o.amount)}</span>`}</div>`).join('');
 }
 
 // ---------- グループへの送信（管理者が自分のLINEから送る） ----------
