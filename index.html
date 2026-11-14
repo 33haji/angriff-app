@@ -411,12 +411,22 @@ const isStaff = () => state.role === 'admin' || state.role === 'subadmin';
 let calCursor = new Date(); calCursor.setDate(1);
 
 let liffReadyResolve; const liffReady = new Promise(r => { liffReadyResolve = r; });
-async function api(action, params = {}) {
+// 読み取り系（サーバーの READ_ONLY_ACTIONS と同じ）。それ以外の書き込み系は1件ずつ順番に送る
+const READ_ACTIONS = new Set(['ping', 'me', 'history', 'members', 'practice', 'admin_summary', 'admin_attendance', 'draft', 'admin_expenses', 'admin_places', 'sub_pending', 'admin_settlement']);
+let writeChain = Promise.resolve();
+async function apiRaw(action, params) {
   await liffReady; // キャッシュ表示中に押されても、ログイン準備が終わるまで待ってから送る
   const res = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ action, idToken: liff.getIDToken(), ...params }) });
   const data = await res.json();
   if (!data.ok) throw new Error(data.error || 'error');
   return data;
+}
+function api(action, params = {}) {
+  if (READ_ACTIONS.has(action)) return apiRaw(action, params);
+  // 連続で操作しても、前の書き込みが終わってから次を送る（同時に送るとサーバーで「混み合っています」や取り違えの原因になる）
+  const p = writeChain.then(() => apiRaw(action, params));
+  writeChain = p.catch(() => {});
+  return p;
 }
 /** ボタンを押したらスピナーにして、処理が終わるまで二重押しを防ぐ */
 async function run(btn, fn) {
@@ -550,8 +560,11 @@ function writeMeCache(d) { try { localStorage.setItem(CACHE_KEY, JSON.stringify(
 function clearMeCache() { try { localStorage.removeItem(CACHE_KEY); } catch (e) {} }
 
 let lastMeJson = null;
+let meSeq = 0;
 async function loadMe() {
+  const seq = ++meSeq;
   const d = await api('me');
+  if (seq !== meSeq) return; // 後から出した読み込みがあるので、古い結果では描き直さない
   const json = JSON.stringify(d);
   writeMeCache(d);
   if (json === lastMeJson) return; // 前回と同じなら描き直さない（画面が動かない）
@@ -1113,11 +1126,14 @@ function showAdminSec(s) {
 }
 function togglePanel(id) { document.getElementById(id).classList.toggle('open'); }
 function setCount(id, n) { const el = document.getElementById(id); el.textContent = n; el.classList.toggle('hidden', !n); }
+let adminSeq = 0;
 async function loadAdmin() {
   renderAdminPractices();
   loadExpenses().catch(e => { document.getElementById('admin-expenses').innerHTML = `<div class="empty">読み込めませんでした: ${esc(e.message)}</div>`; });
   if (!state.isAdmin) return;
+  const seq = ++adminSeq;
   const d = await api('admin_summary');
+  if (seq !== adminSeq) return; // 後から出した読み込みがあるので、古い結果では描き直さない
   setCount('cnt-money', (d.unmatched || []).length + (d.pending || []).length + (d.sub_issues || []).length);
   document.getElementById('admin-subissues').innerHTML = (d.sub_issues || []).map(x => `<div class="row"><div class="l"><div class="t">${esc(x.name)}</div><div class="s">${x.status === 'rejected' ? `${esc(state.subName || 'サブ管理者')}が「届いていない」` : '確認されないまま期限切れ'} ・ ${fmtMD(x.date)} 申告${x.practice ? ' ・ ' + esc(x.practice) + 'の分' : ''}</div></div><span class="pill warn">${yen(x.amount)}</span></div>`).join('') || '<div class="empty">ありません</div>';
   const rowB = (r, cls, txt) => `<div class="row"><div class="l"><div class="t">${esc(r.name)}${r.type === 'guest' ? ' <span class="pill">助っ人</span>' : ''}</div><div class="s">${esc(r.unpaid || '')}</div></div><span class="pill ${cls}">${txt}</span></div>`;
@@ -1128,9 +1144,10 @@ async function loadAdmin() {
   document.getElementById('admin-unmatched').innerHTML = unmatchedList.map((u, i) => `<div class="row"><div class="l"><div class="t">${esc(u.name || '（名前なし）')}</div><div class="s">${fmtMD(u.date)}${u.status === 'review' ? ' ・<span style="color:var(--warn);font-weight:600">金額要確認</span>' : ''}</div></div><span class="pill">${yen(u.amount)}</span><button class="btn sm dark" onclick="openResolve(${i})">対応</button></div>`).join('') || '<div class="empty">ありません</div>';
 }
 // ---------- 名寄せできていないPayPay入金 ----------
-let unmatchedList = [];
+let unmatchedList = [], resolving = null; // resolving: いま開いているモーダルの入金（一覧が読み直されても取り違えない）
 async function openResolve(i) {
   const u = unmatchedList[i]; if (!u) return;
+  resolving = u;
   openModal(SPIN);
   if (!state.members.length) state.members = (await api('members')).members;
   const opts = state.members.slice().sort((a, b) => (a.type === b.type ? 0 : a.type === 'member' ? -1 : 1))
@@ -1142,17 +1159,18 @@ async function openResolve(i) {
     </div>
     <label>誰の支払い？</label><select id="ru-member"><option value="">選んでください</option>${opts}</select>
     <div class="hint">選んだ人の支払いとして反映します。この表示名（${esc(u.name || '')}）はその人に登録され、次回からは自動で紐付きます</div>
-    <button class="btn dark" onclick="run(this, () => resolveUnmatched(${i}))">この人の支払いとして反映</button>
-    <button class="btn ghost" onclick="run(this, () => ignoreUnmatched(${i}))">練習費・イベント費ではないので無視する</button>`);
+    <button class="btn dark" onclick="run(this, resolveUnmatched)">この人の支払いとして反映</button>
+    <button class="btn ghost" onclick="run(this, ignoreUnmatched)">練習費・イベント費ではないので無視する</button>`);
 }
-async function resolveUnmatched(i) {
-  const u = unmatchedList[i], mid = document.getElementById('ru-member').value;
+async function resolveUnmatched() {
+  const u = resolving, mid = document.getElementById('ru-member').value;
+  if (!u) return;
   if (!mid) { toast('誰の支払いか選んでください'); return; }
   await api('admin_resolve_unmatched', { txn: u.txn, member_id: mid });
   closeModal(); toast('反映しました'); await loadAdmin();
 }
-async function ignoreUnmatched(i) {
-  const u = unmatchedList[i];
+async function ignoreUnmatched() {
+  const u = resolving; if (!u) return;
   if (!confirm(`${u.name || ''} の ${yen(u.amount)} を無視します。よろしいですか？`)) return;
   await api('admin_ignore_unmatched', { txn: u.txn });
   closeModal(); toast('無視しました'); await loadAdmin();
@@ -1289,8 +1307,11 @@ async function deleteEvent(pid) {
 }
 // ---------- 経費（会計スプシの「支出」） ----------
 let expenseInfo = null;
+let expenseSeq = 0;
 async function loadExpenses() {
+  const seq = ++expenseSeq;
   const [e, sp, st] = await Promise.all([api('admin_expenses'), api('sub_pending').catch(() => ({ items: [] })), api('admin_settlement').catch(() => ({}))]);
+  if (seq !== expenseSeq) return; // 古い読み込み結果は捨てる
   expenseInfo = e; subPending = sp.items || []; settlement = st.settlement || null;
   renderExpenses(); renderSubPending(); renderSettlement();
 }
@@ -1301,20 +1322,20 @@ function renderSubPending() {
   card.classList.toggle('hidden', !settlement); // サブ管理者がいないときは出さない
   setCount('cnt-ledger', subPending.length);
   document.getElementById('subpp-list').innerHTML = subPending.map((x, i) => `<div class="row" style="flex-wrap:wrap"><div class="l"><div class="t">${esc(x.name)}</div><div class="s">${fmtMD(x.date)} 申告${x.practice ? ' ・ ' + esc(x.practice) + 'の分' : ''}</div></div><span class="pill amber">${yen(x.amount)}</span>
-    <div style="width:100%;margin-top:8px;display:grid;grid-template-columns:repeat(3,1fr);gap:6px"><button class="btn sm dark" style="margin:0;padding:9px 2px;font-size:13px;white-space:nowrap" onclick="run(this, () => subConfirm(${i}, 'ok'))">受け取った</button><button class="btn sm ghost" style="margin:0;padding:9px 2px;font-size:13px;white-space:nowrap" onclick="subAmount(${i})">金額が違う</button><button class="btn sm ghost" style="margin:0;padding:9px 2px;font-size:13px;white-space:nowrap;color:var(--warn)" onclick="run(this, () => subConfirm(${i}, 'reject'))">届いていない</button></div></div>`).join('') || '<div class="empty">確認待ちはありません</div>';
+    <div style="width:100%;margin-top:8px;display:grid;grid-template-columns:repeat(3,1fr);gap:6px"><button class="btn sm dark" style="margin:0;padding:9px 2px;font-size:13px;white-space:nowrap" onclick="run(this, () => subConfirm('${x.payment_id}', 'ok'))">受け取った</button><button class="btn sm ghost" style="margin:0;padding:9px 2px;font-size:13px;white-space:nowrap" onclick="subAmount('${x.payment_id}')">金額が違う</button><button class="btn sm ghost" style="margin:0;padding:9px 2px;font-size:13px;white-space:nowrap;color:var(--warn)" onclick="run(this, () => subConfirm('${x.payment_id}', 'reject'))">届いていない</button></div></div>`).join('') || '<div class="empty">確認待ちはありません</div>';
 }
-async function subConfirm(i, action, amount) {
-  const x = subPending[i]; if (!x) return;
+async function subConfirm(id, action, amount) {
+  const x = subPending.find(p => p.payment_id === id); if (!x) { toast('すでに処理されています'); return; }
   if (action === 'reject' && !confirm(`${x.name} さんの ${yen(x.amount)} を「届いていない」として取り消します。${x.name} さんは未払いに戻ります。よろしいですか？`)) return;
   await api('sub_confirm', { payment_id: x.payment_id, action, amount });
   closeModal(); toast(action === 'reject' ? '取り消しました' : '支払い済みにしました'); await loadExpenses();
 }
-function subAmount(i) {
-  const x = subPending[i]; if (!x) return;
+function subAmount(id) {
+  const x = subPending.find(p => p.payment_id === id); if (!x) return;
   openModal(`<h3>実際に届いた金額</h3><div class="muted">${esc(x.name)} さん・申告 ${yen(x.amount)}${x.practice ? '（' + esc(x.practice) + 'の分）' : ''}</div>
     <label>届いた金額</label><input type="number" id="sub-amt" inputmode="numeric" value="${x.amount}">
     <div class="hint">この金額だけ支払い済みにします。足りない分は未払いのまま残ります</div>
-    <button class="btn dark" onclick="run(this, () => subConfirm(${i}, 'amount', Number(document.getElementById('sub-amt').value)))">この金額で確定</button>`);
+    <button class="btn dark" onclick="run(this, () => subConfirm('${x.payment_id}', 'amount', Number(document.getElementById('sub-amt').value)))">この金額で確定</button>`);
 }
 async function openSubRegister() {
   openModal(SPIN);
